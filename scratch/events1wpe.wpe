@@ -1,0 +1,474 @@
+#The Game,🐈‍⬛
+>0,choice
+  +p: "Hello, dear witch.  I am your familiar, the Black Cat.  It is from me that you get your magic.  Ensure you keep me satisfied, lest you risk losing my favor."
+  +c: 1|Continue.
+  +c: 4|I already know what to do.
+>1,dice
+  +p: "I have provided you with a magic dice.  Hover over it to see its faces.  There are three kinds of magic."<br><br>- DICE_FIRE_MAGIC is for fending off your enemies.<br>- DICE_HEART_MAGIC is for affecting people.<br>- DICE_GROW is for growing your garden.
+  +dice: 1 ANY
+  +pass: 2
+  +fail: 2
+>2,modify
+  +p: "I am tasking you with running a potion shop: each day you will harvest magical herbs, mix potions, and deal with the many problems of the nearby villagers."<br><br>- You get <b>Herbs</b> by growing them in your garden.<br>- You get <b>Reagents</b> by buying them from a merchant.
+  +n: 3
+>3,modify
+  +p: "Run this shop for <b>1 month</b> and you will have convinced me that you are a competent witch.  Then, and only then, I shall let you keep your magic."
+  +n: 4
+>4,modify
+  +p: "Here's some materials to get you started.  Don't disappoint me."
+  +n:eIntro
+>eIntro,end
+
+#The Wizard,🧙🏼‍♀️
+@A=FIRE(1)
+@B=1 HERB_SPARKLEWEED
+@C=5 GOLD
+@D=1 FAVOR_CAT
+>0,choice
+  +p: An old wizard enters your shop. He challenges you to a duel, promising a great reward.<br><br>If you win: the wizard gives<br>@C and<br>@B.<br>If you lose, the wizard takes @B.<br><br>You can sense the Black Cat observing you.
+  +c: 1|Accept! This guy's going down.<br>@A
+  +c: 2|Reject. You're not interested in duels.
+>2,modify
+  +p: The disappointed wizard leaves.
+  +n: e
+>1,dice
+  +p: The wizard readies a magic spell!  You raise your hands to match him.
+  +dice: @A
+  +pass: 3
+  +fail: 4
+>3,modify
+  +p: Your spells clash in magnificent glory, and when the smoke clears you stand triumphant! The defeated wizard shells out what he agreed to and leaves.<br><br>You can feel that the Black Cat appreciates your victory.
+  +add: @C|@B|@D
+  +n: e
+>4,modify
+  +p: Damn!  His spell was just too much for you to handle.  The smug wizard pockets his earnings before leaving. You feel the Black Cat is displeased.
+  +rem: @B|@D
+  +n: e
+
+#Gnome Thief,👨
+@A=FIRE(2)
+@B=HEART(1)
+@C=HERB(RAND2_4 y)
+@D=HERB(1 y)
+@E=1 FAVOR_CAT
+@L=The gnome slips away with your herbs.
+>0,choice
+  +p: You wake up early this morning to find a small gnome stealing from your garden!  With a fistful of herbs, he spots you and tries to run away as fast as his little feet can carry him.
+  +c: 1|Use your magic to threaten the gnome! Effective, but you'll likely damage the herbs... @A
+  +c: 2|Magically entice the gnome to give back the herbs. @B
+  +c: fail|Let him take @C, but at least there'll be no ruckus.
+>1,dice
+  +p: You raise your hand and aim at the little fellow.
+  +dice: @A
+  +pass: 1pass
+  +fail: fail2
+>1pass,modify
+  +p: The gnome drops your herbs and runs off, but errant fire damages your garden.
+  +rem: @D
+  +n: e
+>2,dice
+  +p: You call out to the gnome and attempt wrap your words with your magic.
+  +dice: @B
+  +pass: 2pass
+  +fail: fail2
+>2pass,modify
+  +p: The gnome timidly hands over the herbs and scampers off to bother somebody else.
+  +n: e
+>fail,modify
+  +p: @L
+  +rem: @C
+  +n: e
+>fail2,modify
+  +p: @L<br><br>The Black Cat is displeased with your failure.
+  +rem: @C
+  +rem: @E
+  +n: e
+
+#Disgruntled Customer,👤
+@A=HEART(RAND1_3)
+@B=POT1(1)
+@C=POT1(1 y)
+@D=FIRE(RAND2_3)
+@E=GOLD(RAND2_4)
+@F=3 GOLD
+>0,choice
+  +p: An angry customer shoves a potion in your face. "It doesn't work!" she claims.  "I need a refund!"  You see right away this potion is fake.  You didn't sell this...
+  +c: 1|Kindly explain to her that you didn't sell this potion.  Maybe she'll calm down and leave?  A little magic could help too... @A
+  +c: 2|Give her a replacement potion on the house.  The fake one looks like it's similar to @B.|HAS(@B)
+  +c: 3|Demand that she leave at once! You're not going to get scammed with this.
+>1,dice
+  +p: As you explain, you attempt to placate her with your magic.
+  +dice: @A
+  +pass: 1pass
+  +fail: 1fail
+>1pass,modify
+  +p: Your soothing words calm her down and she leaves without fanfare.
+  +n: e
+>1fail,modify
+  +p: Uh oh.  She throws an impressive conniption that manifests as a lot of yelling, the fake potion shattering on the floor, and the damaging of some of your wares.  After about an hour of this screaming, she finally leaves.
+  +rem: @C
+  +n: e
+>2,modify
+  +p: She grumpily accepts your replacement.
+  +rem: @B
+  +n: e
+>3,choice
+  +p: A furrowed brow, a tilted chin, a clenched fist.  These are the signs of impending violence...
+  +c: 3fight|Ready your magic.  This could get ugly... @D
+  +c: 3relent|Relent and give her the replacement @B and a little extra @E for good measure.|HAS(@B),HAS(@E)
+  +c: 3relent2|Relent and give her a fair refund @F|HAS(@F)
+>3fight,dice
+  +p: You ready a spell to intimidate her.
+  +dice: @D
+  +pass: 3fightpass
+  +fail: 1fail
+>3fightpass,modify
+  +p: She screams in terror, throws the foreign potion at the ground where it shatters, and retreats gracelessly from your shop
+  +n: e
+>3relent,modify
+  +p: You hand over @B and @E.  She huffs at you in indignation, but leaves.
+  +rem: @B
+  +rem: @E
+  +n: e
+>3relent2,modify
+  +p: You shell out @F. With a smug grin, the customer snatches the purse and leaves.
+  +rem: @F
+  +n: e
+
+#Injured Dragon,🐲
+@A=HEART(1)
+@B=1 POT_DRAGON_SWEAT
+@C=6 GOLD
+@E=1 FAVOR_CAT
+>0,choice
+  +p: A villager rushes into your shop. "My pet dragon!", he says, "He's injured. Can you help?"<br><br>You walk outside to see an irritated, tiny dragon with a gash across his body.  Smoke streams from its nostrils, ready to burn anything that comes too close.<br><br>You can sense the Black Cat observing you.
+  +c: 1|You could try to calm him down so you can treat his wounds, perhaps? @A
+  +c: 2|You have @B; the fire won't hurt you so you can get close and heal him.|HAS(@B) 
+  +c: 3|Sorry, dragons are too dangerous.
+>1,dice
+  +p: Carefully you step towards the little dragon, readying your magic.
+  +dice: @A
+  +pass: 1pass
+  +fail: 1fail
+>1pass,modify
+  +p: Your soothing energy calms the dragon, and he lets you approach without incident. You're able to bandage its wounds.<br><br>The grateful villager rewards you for your effort.
+  +add: @C
+  +n: e
+>1fail,modify
+  +p: The angry dragon flails and breaths crazy amounts fire.  You barely manage to escape unscathed.  The villager rushes him away, shouting about how much you upset his pet.<br><br>After this debacle, you know the Black Cat is quite displeased with you.
+  +rem: 2 FAVOR_CAT
+  +n: e
+>2,modify
+  +p: The angry dragon breaths streams of fire, but the potion protects you as you heal him.  The villager is grateful. He rewards you for your effort.
+  +rem: @B
+  +add: @C
+  +add: @E
+  +n: e
+>3,modify
+  +p: "Some witch you are!" The villager spits at you and leaves with his dragon.  You can sense the Black Cat's displeasure.
+  +rem: @E
+  +n: e
+
+#You Have a Cold,🤧
+@A=1 POT_COLD_CURE
+>0,choice
+  +p: You feel groggy and sick this morning, and it's a struggle to get out of bed.
+  +c: 1|You're not feeling well, and simply cannot be a proper witch today.
+  +c: 2|Drink @A.|HAS(@A)
+>1,modify
+  +p: You should feel better soon, but not today.
+  +add:1 EFFECT_COLD
+>2,modify
+  +p: You drink @A and feel better.<br><br>...A lot better in fact!  You feel like you can harvest extra today!
+  +rem: @A
+  +add: EFFECT_GREEN_THUMB
+  +n: e
+
+#Green Thumbs,🌱
+>0,modify
+  +p: Today is a good day!  You woke up with green thumbs.<br><br>It doesn't happen every day, but when it does you should take advantage.
+  +add:1 EFFECT_GREEN_THUMB
+  +n: e
+
+#Cursed Robbery!,🦹‍♂️
+@A=ALL GOLD
+@B=FIRE(2)
+@C=HEART(2)
+>0,choice
+  +p: A costumed man dashes into your shop.<br><br>"Give me all your money or I'll curse you!"
+  +c: 1|Cower in fear and give him @A.
+  +c: 2|Stand your ground, readying your magic. @B
+  +c: 3|Try to reason with him. @C
+>1,modify
+  +p: You empty your coffers and give up @A.
+  +rem: @A
+  +n: e
+>2,dice
+  +p: You raise your hands, readying your magic.
+  +dice: @B
+  +pass: 2pass
+  +fail: 2fail
+>2pass,modify
+  +p: Your spell terrifies the would-be robber, who scurries away, dropping some coins on the floor.
+  +add: 3 GOLD
+  +n: e
+>2fail,modify
+  +p: You cast a spell at the man, but he is too fast.  He curses your dice!<br><br>You are barely able to fend him off and he leaves.
+  +add: 1 EFFECT_REPLACE_CURSE
+  +n: e
+>3,dice
+  +p: You raise your hands, readying your magic.
+  +dice: @C
+  +pass: 3pass
+  +fail: 3fail
+>3pass,modify
+  +p: You reason with the man, and he is impressed by your wisdom.  He somehow leaves you with a generous tip.
+  +add: 10 GOLD
+  +n: e
+>3fail,modify
+  +p: You try to reason with the man, but he is too greedy.  He curses your dice!<br><br>You are barely able to fend him off and he leaves.
+  +add: 1 EFFECT_ADEFFECT_REPLACE_CURSED_CURSE
+  +n: e
+
+#Mason,🧱
+@A=1 BLUEPRINT_SPARKLEWEED
+@B=1 BLUEPRINT_BRAMBLEBERRY
+@C=1 BLUEPRINT_SPECIALPETAL
+@D=5 GOLD
+@L1=Before the day is done you have a lovely new addition to your garden.
+@L2=Build a bed for
+>0,choice
+  +p: A mason visits your shop.  He offers to upgrade your garden for @D.
+  +c: 1a|@L2<br>@A.|HAS(@D)
+  +c: 1b|@L2<br>@B.|HAS(@D)
+  +c: 1c|@L2<br>@C.|HAS(@D)
+  +c: 4|No thanks.
+>1a,modify
+  +p: @L1
+  +rem: @D
+  +add: @A
+  +n: e
+>1b,modify
+  +p: @L1
+  +rem: @D
+  +add: @B
+  +n: e
+>1c,modify
+  +p: @L1
+  +rem: @D
+  +add: @C
+  +n: e
+>4,modify
+  +p: He leaves.
+  +n: e
+
+#Panicked Cook,👨🏼‍🍳
+@A=1 POT_TINCTURE_OF_TASTE
+@B=1 HERB_BRAMBLEBERRY
+@C=1 HERB_SPECIALPETAL
+@D=1 REAG_SKY_DUST
+>0,choice
+  +p: A man in a chef's hat rushes into your shop. "Oh dear, oh dear, oh dear, I'm in a terrible terrible mess! It's the Duke's birthday today, and I should be making him a lovely big birthday cake."
+  +c: 1|Inform him that this is a potion shop, not a bakery.
+  +c: 2|You could give him @A. That'll make anything taste good.|HAS(@A)
+  +c: 3|You have the ingredients to make @A.  You can make one for him.|HAS(@B),HAS(@C),HAS(@D)
+>1,modify
+  +p:  "I've forgotten to buy the ingredients. I'll never get them in time now. He'll sack me! What will I do", He mutters to himself as he leaves.
+  +n: e
+>2,modify
+  +p: "I am saved! Thank you!"  He leaves you a <i>very</i> generous tip.
+  +rem: @A
+  +add: 10 GOLD
+  +n: e
+>3,modify
+  +p: You make @A and hand it to the man.<br><br>"I am saved! Thank you!"<br><br>He leaves you a <i>very</i> generous tip.
+  +rem: @B
+  +rem: @C
+  +rem: @D
+  +add: 10 GOLD
+  +n: e
+
+#True Balance,☯️
+@A=FIRE(1)
+@B=HEART(1)
+>0,choice
+  +p: An ethereal being materializes in your shop.<br><br>"Demonstrate to me balanced magic, and I shall reward you."<br><br>You sense the gaze of the Black Cat.
+  +c: 1|Sure, you could try a spell with both @A and @B.
+  +c: 2|Send the being on its way.
+>1,dice
+  +p: You raise your hands, intending different magic in each.
+  +dice: @A|@B
+  +pass: pass
+  +fail: fail
+>pass,modify
+  +p: The magnificent union of magic fills the room, and the being is pleased.  It grants you a boon.
+  +add: 10 GOLD
+  +n: e
+>fail,modify
+  +p: The being is displeased.  It leaves, leaving you with a feeling of emptiness.<br><br>The Black Cat is displeased with your performance.
+  +rem: 1 FAVOR_CAT
+  +n: e
+>2,modify
+  +p: You inform the being that you're not interested.
+  +n: e
+
+#Herb Merchant,🛒
+  @A1=GOLD(RAND1_2)
+  @A2=HERB1(RAND3_4)
+  @B1=GOLD(RAND2_3)
+  @B2=HERB2(RAND2_3)
+  @L=You make the trade.
+  >0,choice
+    +p: A traveling merchant offers to trade with you.  "Got a surplus of plants.  I can give ya a good deal."
+    +c: 1|Trade @A1 for<br>@A2.|HAS(@A1)
+    +c: 2|Trade @B1 for<br>@B2.|HAS(@B1)
+    +c: e|Decline the offer
+  >1,modify
+    +p: @L
+    +rem: @A1
+    +add: @A2
+    +n: e
+  >2,modify
+    +p: @L
+    +rem: @B1
+    +add: @B2
+    +n: e
+
+#Attack!,😈
+@A=FIRE(1)
+@B=HEART(2)
+@C=1 FAVOR_CAT
+@L=The grateful villagers scrounge together a nice reward for you.
+>0,choice
+  +p: A monster is attacking the village! As a witch, it is your duty to help.
+  +c: 1|Fend off the monster with your magic.<br>@A
+  +c: 2|Maybe diplomacy will work this time.<br>@B
+>1,dice
+  +p: You prepare to launch a spell at the monster.
+  +dice: @A
+  +pass: 1pass
+  +fail: 1fail
+>1pass,modify
+  +p: With the villagers help, you manage to fend off the monster.<br><br>@L  
+  +add: 5 GOLD
+  +n: e
+>1fail,modify
+  +p: Your spell is not enough, and after a battle that lasts for hours, the monster is finally fended off by the villagers.  Bedraggled and exhausted, you return to your shop.<br><br>The Black Cat is displeased with your performance.
+  +rem: @C
+  +n: e
+>2,dice
+  +p: With eyes closed, you reach out to the monster's chaotic mind with your magic.
+  +dice: @B
+  +pass: 2pass
+  +fail: 1fail
+>2pass,modify
+  +p: Your spell sooths the monster just enough for you to get it to decide to leave peacefully.<br><br>@L
+  +add: @C
+  +n: e
+
+#Villager Contract,📜
+@A=POT1(1)
+@B=9 GOLD
+@C=1 FAVOR_CAT
+>0,choice
+  +p: A villager comes to your shop and requisitions a potion:<br><br>@A.
+  +c: 1|Sell the potion for @B.|HAS(@A)
+  +c: 2|Say you'll have the potion ready by next week.
+  +c: 3|Say you cannot help. The Black Cat won't be pleased.
+>1,modify
+  +p: The villager buys the potion and leaves.
+  +rem: @A
+  +add: @B
+  +n: e
+>2,modify
+  +p: The villager leaves, promising to return next week.
+  +n: e
+  +add: 1 CONTRACT_VILLAGER
+>3,modify
+  +p: The villager leaves, disappointed.
+  +rem: @C
+  +n: e
+
+#Demonic Deal,👹
+@A1=1 DICE_BLANK
+@A2=1
+@A3=1 DICE_CURSE
+@C=1
+@L=The demon snaps its fingers, and you feel something fundamental change within you.
+>0,choice
+  +p: You notice a pair of eyes watching you from the shadows.  When you turn to stare, a smiling demon reveals itself. "Would you like a deal, my dear?"
+  +c: 1|Convert @A1 to<br>@A2.<br>AND<br>Convert @A1 to<br>@A3.
+  +c: 2|No thanks.
+>1,modify
+  +p: @L
+  +add: @C
+  +n: e
+>2,modify
+  +p: It leaves, dejected.
+  +n: e
+
+#The Black Cat,🐈‍⬛
+@A=GOLD(RAND2_4)
+@B=1 FAVOR_CAT
+@L1=The Black Cat's eyes glow
+@L2=and new seed bed appears in your garden.
+>0,choice
+  +p: The Black Cat suddenly appears.<br><br>"Tribute. @A. I demand it."
+  +c: 1|Give the gold to the Black Cat.|HAS(@A)
+  +c: fail|Say that you can't.
+>1,modify
+  +p: With a mischievous grin, The Black Cat gathers the gold.<br><br>"Much appreciated, now I shall grant you a boon."
+  +rem: @A
+  +n: ch
+>ch,choice
+  +p: "What would you like?"
+>fail,modify
+  +p: "I see," The Black Cat says. "Do not disappoint me again.  Despite this I shall grant you a boon."
+  +rem: @B
+  +n: ch
+
+#The Final Test,🐈‍⬛
+@A=FIRE(3)
+@B=HEART(3)
+@C=GOLD(10)
+@L1=You prepare to cast a spell to impress the Black Cat.
+@L2=The Black Cat emits a soft purr of satisfaction.  "Very good.  When I return, surely you will be rewarded."
+@L3=The fur stands on end as the Black Cat's eyes glow red.  "This is not the work of a true witch."
+>0,choice
+  +p: The Black Cat suddenly appears.<br><br>"I have a final test for you.  Demonstrate your magic to me."
+  +c: 1|Cast a threatening fire spell.|HAS(@A)
+  +c: 2|Cast a soothing heart spell.|HAS(@B)
+  +c: 3|Give the cat the money you've earned, surely @C is enough.|HAS(@C)
+>1,dice
+  +p: @L1
+  +dice: @A
+  +pass: 1pass
+  +fail: 1fail
+>1pass,modify
+  +p: @L2
+  +n: e
+>1fail,modify
+  +p: @L3
+  +rem: ALL FAVOR_CAT
+  +n: e
+>2,dice
+  +p: @L1
+  +dice: @B
+  +pass: 1pass
+  +fail: 1fail
+>3,modify
+  +p: "A bargain?"  The cat makes a gagging sound that could almost have been a laugh.  "Very well, I accept."
+  +rem: @C
+  +n: e
+
+#Expulsion,🐈‍⬛
+>0,choice
+  +p: The Black Cat appears in front of you and stares you down with disappointed eyes.<br><br>"I now see that you are not worthy of witchhood.  I should never have allowed you your magic."<br><br>A tugging, a pulling, a ripping sensation engulfs you, tearing out a piece of you, eviscerating your sense of self. You're left unconscious, on the ground with nothing.<br><br>You are no longer a witch.
+  +c: 1|Try again.
+  +c: 2|Quit.|HAS(999 GOLD)
+
+#True Witch,🐈‍⬛
+>0,choice
+  +p: "Alright, that's enough," says the Black Cate. "I'm pleased with you.  You may keep your magic."<br><br>Congratulations! You've completed the game.<br><br>Would you like to play again?
+  +c: 1|Yes.
+  +c: 2|No.|HAS(999 GOLD)

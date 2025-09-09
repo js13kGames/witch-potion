@@ -23,7 +23,7 @@ export const defaultEventState: GameEventState = {
         /*@preserve*/
         id: 'day',
         /*@preserve*/
-        type: 'choice',
+        type: 'ch',
         /*@preserve*/
         p: 'You are at your shop. What would you like to do today?',
         /*@preserve*/
@@ -32,25 +32,25 @@ export const defaultEventState: GameEventState = {
             /*@preserve*/
             text: 'Visit the reagent merchant.',
             /*@preserve*/
-            next: 'merch',
+            n: 'merch',
           },
           {
             /*@preserve*/
             text: 'Mix potions.',
             /*@preserve*/
-            next: 'pot',
+            n: 'pot',
           },
           {
             /*@preserve*/
             text: 'View inventory.',
             /*@preserve*/
-            next: 'inv',
+            n: 'inv',
           },
           {
             /*@preserve*/
             text: 'End the day.',
             /*@preserve*/
-            next: 'nextDay',
+            n: 'nextDay',
           },
         ],
       },
@@ -73,19 +73,19 @@ export const defaultEventState: GameEventState = {
       //       /*@preserve*/
       //       text: 'Buying.',
       //       /*@preserve*/
-      //       next: 'merchBuying',
+      //       n: 'merchBuying',
       //     },
       //     {
       //       /*@preserve*/
       //       text: 'Selling.',
       //       /*@preserve*/
-      //       next: 'merchSelling',
+      //       n: 'merchSelling',
       //     },
       //     {
       //       /*@preserve*/
       //       text: 'Go back.',
       //       /*@preserve*/
-      //       next: 'day',
+      //       n: 'day',
       //     },
       //   ],
       // },

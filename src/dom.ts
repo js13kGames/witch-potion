@@ -2,6 +2,7 @@ export const DIV = 'div';
 export const BUTTON = 'button';
 export const P = 'p';
 export const SPAN = 'span';
+export const BR = '<br>';
 export const TRANSITION = 'transition';
 export const TRANSFORM = 'transform';
 export const INNER_HTML = 'innerHTML';

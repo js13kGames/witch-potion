@@ -48,20 +48,17 @@ export const createGameState = (): GameState => {
     res: [],
     magicDice: [
       createMagicDice(),
-      // createMagicDice(),
-      // createMagicDice(),
-      // createMagicDice(),
     ],
     harvestRoll: [],
     ui: {},
     vars: {
-      avblBlueprints: [ResourceType.BLUEPRINT_SPECIALPETAL],
+      avblBlueprints: [ResourceType.BP_SPE],
     },
   };
   state.res.push(
-    ResourceType.BLUEPRINT_SPARKLEWEED,
-    ResourceType.BLUEPRINT_BRAMBLEBERRY
-    // ResourceType.BLUEPRINT_SPECIALPETAL
+    ResourceType.BP_SPA,
+    ResourceType.BP_BRA
+    // ResourceType.BP_SPE
   );
 
   return state;
@@ -69,21 +66,29 @@ export const createGameState = (): GameState => {
 
 export const createMagicDice = (): DiceWithFaces => {
   return [
-    ResourceType.DICE_FIRE_MAGIC,
-    ResourceType.DICE_FIRE_MAGIC,
-    ResourceType.DICE_HEART_MAGIC,
-    ResourceType.DICE_HEART_MAGIC,
-    ResourceType.DICE_GROW,
-    ResourceType.DICE_GROW,
+    ResourceType.DICE_FIR,
+    ResourceType.DICE_FIR,
+    ResourceType.DICE_HEA,
+    ResourceType.DICE_HEA,
+    ResourceType.DICE_GRO,
+    ResourceType.DICE_GRO,
   ];
 };
 
-export const createMagicDiceGrow = (): DiceWithFaces => {
-  const arr = [];
+export const createMagicDiceBlank = (): DiceWithFaces => {
+  const d = [];
   for (let i = 0; i < 6; i++) {
-    arr.push(ResourceType.DICE_GROW);
+    d.push(ResourceType.DICE_BLA);
   }
-  return arr as DiceWithFaces;
+  return d as DiceWithFaces;
+};
+
+export const createMagicDiceGrow = (): DiceWithFaces => {
+  const d = [];
+  for (let i = 0; i < 6; i++) {
+    d.push(ResourceType.DICE_GRO);
+  }
+  return d as DiceWithFaces;
 };
 
 export const gameStateModifyResource = (
@@ -138,12 +143,12 @@ export const gameStateHasHarvestRoll = (state: GameState) => {
 
 export const blueprintToHerb = (blueprint: ResourceType): ResourceType => {
   switch (blueprint) {
-    case ResourceType.BLUEPRINT_SPARKLEWEED:
-      return ResourceType.HERB_SPARKLEWEED;
-    case ResourceType.BLUEPRINT_BRAMBLEBERRY:
-      return ResourceType.HERB_BRAMBLEBERRY;
-    case ResourceType.BLUEPRINT_SPECIALPETAL:
-      return ResourceType.HERB_SPECIALPETAL;
+    case ResourceType.BP_SPA:
+      return ResourceType.HERB_SPA;
+    case ResourceType.BP_BRA:
+      return ResourceType.HERB_BRA;
+    case ResourceType.BP_SPE:
+      return ResourceType.HERB_SPE;
     default:
       throw new Error(`Unknown blueprint: ${blueprint}`);
   }

@@ -15,11 +15,11 @@
 >3,modify
   +p: The defeated wizard shells out 2 GOLD and leaves.
   +add: 2 GOLD|1 HERB_CRIMSON_FLOWER
-  +next: e
+  +n: e
 >4,modify
   +p: The smug wizard pockets 2 HERB_SPARKLEWEED before leaving. You feel the Black Cat is displeased.
   +rem: 2 HERB_SPARKLEWEED
-  +next: e
+  +n: e
 
 #The Merchant,icon_merchant
 >0,choice
@@ -31,12 +31,12 @@
   +p: You trade your GOLD for some FEYMOSS.
   +rem: 1 GOLD
   +add: 2 HERB_FEYMOSS
-  +next: e
+  +n: e
 >2,modify
   +p: You trade your herbs for some GOLD.
   +rem: 2 HERB_SPARKLEWEED
   +add: 1 GOLD
-  +next: e
+  +n: e
 >e,end
 
 #The Cat,icon_cat
@@ -53,9 +53,9 @@
 >2,modify
   +p: The cat purrs and grants you a blessing!
   +add: 1 POT_LIQUID_LUCK
-  +next: e
+  +n: e
 >3,modify
   +p: The cat seems unimpressed and leaves.
   +rem: 1 LUCK
-  +next: e
+  +n: e
   

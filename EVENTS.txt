@@ -16,10 +16,10 @@ You think you can win with 3☻.
 >3,modify
   +p: The defeated wizard shells out some gold and leaves.
   +add: $$
-  +next: e
+  +n: e
 >4,modify
   +p: The smug wizard pockets 2 ♀Sp before leaving.  You feel the Black Cat is displeased.
-  +next: e
+  +n: e
 `
 
 Hello, dear witch.  I am your familiar, the Black Cat.  It is from me that you get your magic.  Ensure you keep me satisfied, lest you risk losing my favor.

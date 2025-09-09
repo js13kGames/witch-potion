@@ -13,7 +13,7 @@ export interface FavorMeter {
   subRoot: HTMLElement;
 }
 
-export const MAX_FAVOR = 10;
+export const MAX_FAVOR = 7;
 
 export const createFavorMeter = (): FavorMeter => {
   const root = createElement(DIV, {

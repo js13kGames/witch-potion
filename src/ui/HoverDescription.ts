@@ -15,7 +15,7 @@ export const highlightText = (text: string, color: string) => {
   const resource = getResourceFromLabel(text);
   const cbFuncName = `hl('${resource}', this)`;
   // console.log('Highlight', text, resource, cbFuncName);
-  return `<${SPAN} class="highlight-text" style="color: ${color};" onclick="${cbFuncName}" onmouseover="${cbFuncName}" onmouseout="${cbFuncName}" >${text}</${SPAN}>`;
+  return `<${SPAN} class="highlight-text" style="color: ${color};" ontouchstart="${cbFuncName}" onclick="${cbFuncName}" onmouseover="${cbFuncName}" onmouseout="${cbFuncName}" >${text}</${SPAN}>`;
 };
 
 (window as any).hl = (resource: ResourceType, elem: HTMLElement) => {

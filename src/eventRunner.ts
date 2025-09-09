@@ -1,6 +1,13 @@
 import { defaultEventState } from './defaultEvent';
-import { appendChild, copyObject, getGameRoot } from './dom';
-import { CONDITION_DELIMITER } from './eventParser';
+import {
+  appendChild,
+  copyObject,
+  createElement,
+  getGameRoot,
+  INNER_HTML,
+  SPAN,
+} from './dom';
+import { ARG_DELIMITER, CONDITION_DELIMITER } from './eventParser';
 import {
   ConditionFunc,
   GameEvent,
@@ -13,6 +20,8 @@ import {
   REAGENT_NAMES,
   REAGENT_TIER_1_NAMES,
   REAGENT_TIER_2_NAMES,
+  RECIPES,
+  recipeToStringArr,
   ResourceType,
   ResourceTypeFunc,
 } from './eventTypes';
@@ -21,6 +30,7 @@ import {
   gameCreateViewInventoryEvents,
   gameCreateBrewingEvents,
   gameCreateMerchantEvents,
+  gameCreateAntiCursePotionEvent,
 } from './generatedEvents';
 import {
   GameState,
@@ -48,7 +58,7 @@ export interface GameEventState {
 export const runEvent = (state: GameState, event: GameEvent) => {
   const eventState = createEventState(event);
   evaluateVars(state, eventState, event);
-  replaceVars(eventState, event);
+  replaceVars(state,eventState, event);
   let modal = state.ui.eventModal;
   if (!modal) {
     modal = createEventModal(eventState);
@@ -88,6 +98,15 @@ export const gameEventRunChild = (
       gameCreateMerchantEvents(state, newEventState);
       gameCreateBrewingEvents(state, newEventState);
       gameCreateViewInventoryEvents(state, newEventState);
+      gameCreateAntiCursePotionEvent(state, newEventState);
+      if (state.day % 7 === 4) {
+        appendChild(
+          modal.content,
+          createElement('p', {
+            [INNER_HTML]: `<${SPAN} style="color: brown;">You feel that the Black Cat will visit you tomorrow.</${SPAN}>`,
+          })
+        );
+      }
       gameEventRunChild(state, newEventState, newEventState.event.children[0]);
     }
     return;
@@ -126,7 +145,11 @@ export const gameEventRunChild = (
   if (child.mod) {
     child.parsedMod = [];
     for (const modifyResource of child.mod) {
-      const [amt, resource] = parseAmountAndResource(modifyResource);
+      // eslint-disable-next-line prefer-const
+      let [amt, resource] = parseAmountAndResource(modifyResource);
+      if (Math.abs(amt) === 99) {
+        amt = Math.sign(amt) * gameStateGetResourceCount(state, resource);
+      }
       child.parsedMod.push({
         amt,
         resource,
@@ -148,7 +171,7 @@ export const gameEventRunChild = (
   setPrimaryResources(state.ui.res!, state);
   setFavorMeterPct(
     state.ui.favorMeter!,
-    gameStateGetResourceCount(state, ResourceType.FAVOR_CAT)
+    gameStateGetResourceCount(state, ResourceType.FAV_CAT)
   );
 };
 
@@ -218,53 +241,67 @@ export const gameEventParseResourceFunc2 = (
     }
     if (resToReturn.length === 0) {
       console.log('No resources found for', func, args);
+      // if (requireExist && ) {
       return [0, ResourceType.GOLD];
     }
     return [amt + 1, randInArray(resToReturn)];
   };
 
   const funcResults = {
-    [ResourceTypeFunc.FUNC_RANDOM_HERB_TIER_1]: () => {
+    [ResourceTypeFunc.FUNC_H1]: () => {
       return _parseArgsForAmtFunc(HERB_TIER_1_NAMES);
     },
-    [ResourceTypeFunc.FUNC_RANDOM_HERB_TIER_2]: () => {
+    [ResourceTypeFunc.FUNC_H2]: () => {
       return _parseArgsForAmtFunc(HERB_TIER_2_NAMES);
     },
-    [ResourceTypeFunc.FUNC_RANDOM_HERB_ANY]: () => {
+    [ResourceTypeFunc.FUNC_H3]: () => {
+      return _parseArgsForAmtFunc(HERB_TIER_2_NAMES);
+    },
+    [ResourceTypeFunc.FUNC_H_ANY]: () => {
       return _parseArgsForAmtFunc(HERB_NAMES);
     },
-    [ResourceTypeFunc.FUNC_RANDOM_REAGENT_TIER_1]: () => {
+    [ResourceTypeFunc.FUNC_R1]: () => {
       return _parseArgsForAmtFunc(REAGENT_TIER_1_NAMES);
     },
-    [ResourceTypeFunc.FUNC_RANDOM_REAGENT_TIER_2]: () => {
+    [ResourceTypeFunc.FUNC_R2]: () => {
       return _parseArgsForAmtFunc(REAGENT_TIER_2_NAMES);
     },
-    [ResourceTypeFunc.FUNC_RANDOM_REAGENT_ANY]: () => {
+    [ResourceTypeFunc.FUNC_R_ANY]: () => {
       return _parseArgsForAmtFunc(REAGENT_NAMES);
     },
-    [ResourceTypeFunc.FUNC_RANDOM_POTION_TIER_1]: () => {
+    [ResourceTypeFunc.FUNC_P1]: () => {
       return _parseArgsForAmtFunc(
-        POTION_NAMES.filter(p => p !== ResourceType.POT_LIQUID_LUCK)
+        POTION_NAMES.filter(p => p !== ResourceType.POT_LIQ)
       );
     },
-    [ResourceTypeFunc.FUNC_RANDOM_POTION_ANY]: () => {
+    [ResourceTypeFunc.FUNC_P_ANY]: () => {
       return _parseArgsForAmtFunc(POTION_NAMES);
     },
-    [ResourceTypeFunc.FUNC_RANDOM_GOLD]: () => {
+    [ResourceTypeFunc.FUNC_G]: () => {
       return _parseArgsForAmtFunc([ResourceType.GOLD]);
     },
-    [ResourceTypeFunc.FUNC_RANDOM_FIRE_MAGIC]: () => {
-      return _parseArgsForAmtFunc([ResourceType.DICE_FIRE_MAGIC]);
+    [ResourceTypeFunc.FUNC_FIRE]: () => {
+      return _parseArgsForAmtFunc([ResourceType.DICE_FIR]);
     },
-    [ResourceTypeFunc.FUNC_RANDOM_HEART_MAGIC]: () => {
-      return _parseArgsForAmtFunc([ResourceType.DICE_HEART_MAGIC]);
+    [ResourceTypeFunc.FUNC_HEART]: () => {
+      return _parseArgsForAmtFunc([ResourceType.DICE_HEA]);
     },
-    [ResourceTypeFunc.FUNC_RANDOM_GROW]: () => {
-      return _parseArgsForAmtFunc([ResourceType.DICE_GROW]);
+    [ResourceTypeFunc.FUNC_GROW]: () => {
+      return _parseArgsForAmtFunc([ResourceType.DICE_GRO]);
+    },
+    [ResourceTypeFunc.FUNC_ING]: () => {
+      if (args[0].includes('@')) {
+        return [18, text];
+      }
+      const [, resource] = parseAmountAndResource(args.join(' '));
+      console.log('RES', args);
+      const recipe: ResourceType[] = RECIPES[resource];
+      const amounts = recipeToStringArr(recipe);
+      return [18, amounts.join(ARG_DELIMITER)];
     },
   };
 
-  const funcResult = funcResults[func];
+  const funcResult: () => [number, ResourceType] = funcResults[func];
   if (funcResult) {
     return funcResult();
   }
@@ -301,8 +338,10 @@ export const gameEventReplaceEnumWithIcons = (
     //   label = '';
     // }
     const replacement = `${label}${Labels[enumValue].icon}`;
-    result = result.replaceAll(enumName, replacement);
+    result = result.replaceAll(ResourceType[enumName], replacement);
   }
+
+  text = text.replaceAll('Infinity', 'all');
 
   return result;
 };
@@ -317,9 +356,10 @@ export const gameEventParseCondition = (
   }
   const arr = splitDelimTrim(conditionString, CONDITION_DELIMITER);
   const resFuncs: (() => boolean)[] = [];
-  for (const cond of arr) {
+  for (let i = 0; i < arr.length; i++) {
+    const cond = arr[i];
     const _parseHasResource = (str: string) => {
-      const arr = parseFunc(str, ConditionFunc.HAS_RESOURCE);
+      const arr = parseFunc(str, ConditionFunc.HAS_RES);
       if (!arr) {
         return;
       }
@@ -329,9 +369,29 @@ export const gameEventParseCondition = (
       };
     };
 
+    const _parseHasIngredients = (str: string) => {
+      const arr = parseFunc(str, ConditionFunc.HAS_ING);
+      if (!arr) {
+        return;
+      }
+      const [, resource] = parseAmountAndResource(arr[1].join(' '));
+      const recipe: ResourceType[] = RECIPES[resource];
+      const amounts = recipeToStringArr(recipe);
+      return () => {
+        return amounts.every(a => {
+          const [_amt, resource] = parseAmountAndResource(a);
+          return gameStateHasResource(state, resource, _amt);
+        });
+      };
+    };
+
     const hasResource = _parseHasResource(cond);
     if (hasResource) {
       resFuncs.push(hasResource);
+    }
+    const hasIngredients = _parseHasIngredients(cond);
+    if (hasIngredients) {
+      resFuncs.push(hasIngredients);
     }
   }
 
@@ -353,10 +413,11 @@ const replaceVarsInText = (text: string, evalVars: Record<string, string>) => {
 const parseAmountAndResource = (text: string): [number, ResourceType] => {
   const arr = text.split(' ');
   if (arr.length === 2) {
-    // if (arr[1] === 'ANY') {
-    //   return [1, 'ANY'];
-    // }
-    return [parseInt(arr[0]), stringToResourceType(arr[1])];
+    const t = stringToResourceType(arr[1]);
+    if (arr[0].includes('ALL')) {
+      return [arr[0][0] === '-' ? -99 : 99, t];
+    }
+    return [parseInt(arr[0]), t];
   }
   return [1, ResourceType.GOLD];
 };
@@ -385,6 +446,9 @@ const evaluateVars = (
 ) => {
   for (const varName in event.vars) {
     const obj = event.vars[varName];
+    if (obj.parsed) {
+      continue;
+    }
     const parsedFunc = parseFunc(obj.str);
     if (parsedFunc) {
       const existingParsed = eventState.evalVars[varName];
@@ -399,7 +463,10 @@ const evaluateVars = (
         args,
         state
       );
-      const str = amt + ' ' + resourceName;
+      let str = amt + ' ' + resourceName;
+      if (amt === 18) {
+        str = resourceName;
+      }
       obj.parsed = str;
       eventState.evalVars[varName] = str;
     } else {
@@ -409,7 +476,17 @@ const evaluateVars = (
   }
 };
 
-const replaceVars = (eventState: GameEventState, event: GameEvent) => {
+const replaceVars = (state: GameState, eventState: GameEventState, event: GameEvent) => {
+  for (const varName in event.vars) {
+    const obj = event.vars[varName];
+    if (obj.parsed.includes('@')) {
+      obj.str = replaceVarsInText(obj.str, eventState.evalVars);
+      delete eventState.evalVars[varName]
+      delete obj.parsed;
+    }
+  }
+  evaluateVars(state, eventState, event);
+
   for (const child of event.children) {
     if (child.p) {
       child.p = replaceVarsInText(child.p, eventState.evalVars);
@@ -432,10 +509,21 @@ const replaceVars = (eventState: GameEventState, event: GameEvent) => {
       }
     }
     if (child.mod) {
+      const newMod: string[] = [];
       for (let i = 0; i < child.mod.length; i++) {
         const mod = child.mod[i];
-        child.mod[i] = replaceVarsInText(mod, eventState.evalVars);
+        const result = replaceVarsInText(mod, eventState.evalVars);
+        const arr = splitDelimTrim(result, ARG_DELIMITER);
+        const isNegative = result[0] === '-';
+        if (arr.length === 1) {
+          newMod.push(result);
+        } else {
+          newMod.push(
+            ...arr.map((a, i) => (isNegative && i > 0 ? '-' + a : a))
+          );
+        }
       }
+      child.mod = newMod;
     }
   }
 };

@@ -7,6 +7,7 @@ import {
   EVENT_CLICK,
   INNER_HTML,
   P,
+  timeoutPromise,
 } from '../dom';
 import { gameEventRunChild, GameEventState } from '../eventRunner';
 import { ICON_GROW, Labels, ResourceType } from '../eventTypes';
@@ -53,7 +54,7 @@ export const createGarden = (
   const harvestButtons: HTMLElement[] = [];
 
   const hasGreenThumb =
-    gameStateGetResourceCount(state, ResourceType.EFFECT_GREEN_THUMB) > 0;
+    gameStateGetResourceCount(state, ResourceType.EFF_GRE) > 0;
 
   for (const blueprint of blueprints) {
     const gardenSlot = createElement(DIV, {
@@ -98,7 +99,7 @@ export const createGarden = (
   }
 
   if (hasGreenThumb) {
-    const greenThumbLabel = Labels[ResourceType.EFFECT_GREEN_THUMB];
+    const greenThumbLabel = Labels[ResourceType.EFF_GRE];
     const greenThumbText = createElement(P, {
       class: CLASS_BTN_TEXT,
       [INNER_HTML]: `Your ${greenThumbLabel.l}${greenThumbLabel.icon} will let you harvest double.`,
@@ -113,11 +114,11 @@ export const createGarden = (
     //   margin: '-4px',
     // });
     for (const button of harvestButtons) {
-      button.remove();
+      // button.remove();
+      (button as HTMLButtonElement).disabled = true;
     }
-    gameStateModifyResource(state, ResourceType.EFFECT_GREEN_THUMB, -1);
-    const harvestText = eventModalCreateButtonChosenText('Harvest');
-    appendChild(root, harvestText);
+
+    gameStateModifyResource(state, ResourceType.EFF_GRE, -1);
 
     const promises: Promise<ResourceType[]>[] = [];
     for (const slot of slots) {
@@ -127,11 +128,12 @@ export const createGarden = (
             dice: d,
             elem: slot.diceList[i],
           })),
-          [ResourceType.DICE_GROW]
+          [ResourceType.DICE_GRO]
         )
       );
     }
     const diceRolls = await Promise.all(promises);
+    const multiplier = hasGreenThumb ? 2 : 1;
 
     const harvestResults = gameHarvest(
       state,
@@ -139,11 +141,18 @@ export const createGarden = (
         resourceType: blueprintToHerb(slots[i].type),
         diceResults: r,
       })),
-      hasGreenThumb ? 2 : 1
+      multiplier
     );
     for (let i = 0; i < harvestResults.length; i++) {
       slots[i].resultArea[INNER_HTML] = '+' + String(harvestResults[i]);
     }
+
+    await timeoutPromise(1000);
+    for (const button of harvestButtons) {
+      button.remove();
+    }
+    const harvestText = eventModalCreateButtonChosenText('Harvest');
+    appendChild(root, harvestText);
 
     gameEventRunChild(state, eventState, eventState.event.children[1]);
   };
@@ -157,14 +166,14 @@ export const createGarden = (
   harvestButtons.push(harvestButton);
 
   const hasGrowthPotion =
-    gameStateGetResourceCount(state, ResourceType.POT_GROWTH) > 0;
+    gameStateGetResourceCount(state, ResourceType.POT_GRO) > 0;
   if (hasGrowthPotion) {
     const growMagicDiceHl = highlightResource(
-      ResourceType.DICE_GROW,
+      ResourceType.DICE_GRO,
       COLOR_HIGHLIGHT_DARK_TEXT
     );
     const potGrowthLabelText = `Use a ${highlightResource(
-      ResourceType.POT_GROWTH,
+      ResourceType.POT_GRO,
       COLOR_HIGHLIGHT_DARK_TEXT
     )}<br>(adds 1 all ${growMagicDiceHl} dice).`;
     const potOfGrowthButton = createElement(BUTTON, {
@@ -172,7 +181,7 @@ export const createGarden = (
       [INNER_HTML]: potGrowthLabelText,
     });
     domAddEventListener(potOfGrowthButton, EVENT_CLICK, () => {
-      gameStateModifyResource(state, ResourceType.POT_GROWTH, -1);
+      gameStateModifyResource(state, ResourceType.POT_GRO, -1);
       for (const slot of slots) {
         const growDice = createMagicDiceGrow();
         const diceElem = createDice(state, growDice, ICON_GROW);

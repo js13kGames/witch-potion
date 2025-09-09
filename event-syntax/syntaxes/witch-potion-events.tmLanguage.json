@@ -111,7 +111,7 @@
         },
         {
           "name": "constant.numeric.next.witch-potion-events",
-          "match": "^\\s*\\+next:\\s*([a-z0-9]+)$",
+          "match": "^\\s*\\+n:\\s*([a-z0-9]+)$",
           "captures": {
             "1": { "name": "constant.numeric.next-target.witch-potion-events" }
           }

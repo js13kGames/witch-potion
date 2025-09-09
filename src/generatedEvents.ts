@@ -4,13 +4,15 @@ import {
   ResourceType,
   BUY_COSTS,
   HERB_NAMES,
-  REAGENT_NAMES,
   POTION_NAMES,
   RECIPES,
   GameEvent,
+  recipeToStringArr,
 } from './eventTypes';
 import { createEventState, GameEventState } from './eventRunner';
 import { CONDITION_DELIMITER } from './eventParser';
+import { BR, copyObject } from './dom';
+import { randInArray } from './utils';
 
 export const gameCreateMerchantEvents = (
   state: GameState,
@@ -31,40 +33,42 @@ export const gameCreateMerchantEvents = (
 
   for (const [res, cost] of Object.entries(buyCosts)) {
     buyChoices.push({
-      text: `Buy 1 ${res} for ${cost} ${ResourceType.GOLD}`,
-      next: 'buy_' + res,
+      text: `<b class="shop">Buy 1 ${res} (${cost} ${ResourceType.GOLD})</b>`,
+      n: 'buy_' + res,
       conditionText: `HAS(${cost} ${ResourceType.GOLD})`,
     });
     eventState.event.children.push({
       id: 'buy_' + res,
-      type: 'modify',
+      type: 'm',
       p: `You buy ${res} for ${cost} ${ResourceType.GOLD}.`,
       mod: [`-${cost} ${ResourceType.GOLD}`, `1 ${res}`],
-      next: 'merch',
+      n: 'merch',
+      fastScroll: true,
     });
   }
 
   for (const res of HERB_NAMES) {
     if (state.res.includes(res)) {
       buyChoices.push({
-        text: `Sell 1 ${res} for 1 ${ResourceType.GOLD}`,
-        next: 'sell_' + res,
+        text: `<b class="shop">Sell 1 ${res} (1 ${ResourceType.GOLD})</b>`,
+        n: 'sell_' + res,
         // conditionText: `HAS(1 ${res})`,
       });
       eventState.event.children.push({
         id: 'sell_' + res,
-        type: 'modify',
+        type: 'm',
         p: `You sell 1 ${res} for 1 ${ResourceType.GOLD}.`,
         mod: [`-1 ${res}`, `1 ${ResourceType.GOLD}`],
-        next: 'merch',
-        re: true
+        n: 'merch',
+        re: true,
+        fastScroll: true,
       });
     }
   }
 
   buyChoices.push({
     text: 'Go back.',
-    next: 'day',
+    n: 'day',
   });
 
   // for (const [res, cost] of Object.entries(sellCosts)) {
@@ -76,14 +80,14 @@ export const gameCreateMerchantEvents = (
   //         state,
   //         res as ResourceType
   //       )})`,
-  //       next: 'sell_' + res,
+  //       n: 'sell_' + res,
   //     });
   //     eventState.event.children.push({
   //       id: 'sell_' + res,
   //       type: 'modify',
   //       p: `You sell ${res} for ${cost} ${ResourceType.GOLD}.`,
   //       mod: [`-1 ${res}`, `${cost} ${ResourceType.GOLD}`],
-  //       next: 'merchSelling',
+  //       n: 'merchSelling',
   //       /*@preserve*/
   //       re: true,
   //     });
@@ -92,7 +96,7 @@ export const gameCreateMerchantEvents = (
 
   // sellChoices.push({
   //   text: 'Go back.',
-  //   next: 'day',
+  //   n: 'day',
   // });
 
   eventState.event.children.push(
@@ -100,11 +104,12 @@ export const gameCreateMerchantEvents = (
       /*@preserve*/
       id: 'merch',
       /*@preserve*/
-      type: 'choice',
+      type: 'm',
       /*@preserve*/
-      p: '"What\'re you buying?"',
+      p: '"Whaddya want?"',
       /*@preserve*/
       choices: buyChoices,
+      fastScroll: true,
     }
     // {
     //   /*@preserve*/
@@ -124,31 +129,25 @@ export const gameCreateBrewingEvents = (
   eventState: GameEventState
 ) => {
   const choices: GameEventChoice[] = [];
-  const herbsAndReagents = [...HERB_NAMES, ...REAGENT_NAMES];
 
   const recipes = { ...RECIPES };
   for (const [res, recipe] of Object.entries(recipes)) {
-    const amounts: string[] = [];
-    for (const potentialIngredient of herbsAndReagents) {
-      const amt = recipe.filter(r => r === potentialIngredient).length;
-      if (amt > 0) {
-        amounts.push(`${amt} ${potentialIngredient}`);
-      }
-    }
+    const amounts = recipeToStringArr(recipe);
     const numOwned = gameStateGetResourceCount(state, res as ResourceType);
     choices.push({
-      text: `Brew 1 ${res} (${numOwned}) for <br>${amounts.join('<br>')}`,
-      next: 'brew_' + res,
+      text: `${res}:${BR}${amounts.join(BR)}`,
+      n: 'b_' + res,
       conditionText: amounts.map(a => `HAS(${a})`).join(CONDITION_DELIMITER),
     });
     eventState.event.children.push({
-      id: 'brew_' + res,
-      type: 'modify',
+      id: 'b_' + res,
+      type: 'm',
       p: `You make a ${res}.`,
       mod: [...amounts.map(a => `-${a}`), `1 ${res}`],
-      next: 'pot',
+      n: 'pot',
       /*@preserve*/
       re: true,
+      fastScroll: true,
     });
   }
 
@@ -156,18 +155,21 @@ export const gameCreateBrewingEvents = (
     /*@preserve*/
     text: 'Go back.',
     /*@preserve*/
-    next: 'day',
+    n: 'day',
   });
 
   eventState.event.children.push({
     /*@preserve*/
     id: 'pot',
     /*@preserve*/
-    type: 'choice',
+    type: 'ch',
     /*@preserve*/
     p: 'At the mixing table you can concoct magical potions.',
     /*@preserve*/
+    flex: true,
+    /*@preserve*/
     choices,
+    fastScroll: true,
   });
 };
 
@@ -184,14 +186,40 @@ export const gameCreateViewInventoryEvents = (
     /*@preserve*/
     id: 'inv',
     /*@preserve*/
-    type: 'modify',
+    type: 'm',
     /*@preserve*/
     p:
       "Here's what you have:" +
-      resAndCounts.map(r => ` <br>${r.res} (${r.count})`).join(''),
+      resAndCounts.map(r => ` ${BR}${r.res} (${r.count})`).join(''),
     /*@preserve*/
-    next: 'day',
+    n: 'day',
   });
+};
+
+export const gameCreateAntiCursePotionEvent = (
+  state: GameState,
+  eventState: GameEventState
+) => {
+  // if has a dice face with a curse on it
+  if (state.magicDice.some(d => d.some(f => f === ResourceType.DICE_CUR))) {
+    const dayEvent = eventState.event.children.find(ch => ch.id === 'day');
+    dayEvent.choices.push({
+      text: 'Use 1 POT_ANTI_CURSE to remove a curse.',
+      n: 'noc',
+      conditionText: `HAS(1 ${ResourceType.POT_ANT})`,
+    });
+    eventState.event.children.push({
+      id: 'noc',
+      type: 'm',
+      p: 'Use 1 POT_ANTI_CURSE to remove a curse.',
+      mod: [
+        `-1 ${ResourceType.POT_ANT}`,
+        `1 ${ResourceType.EFF_RMCUR}`,
+      ],
+      n: 'day',
+      re: true,
+    });
+  }
 };
 
 export const createContractReturnEvent = (contractEvent: GameEvent) => {
@@ -202,37 +230,80 @@ export const createContractReturnEvent = (contractEvent: GameEvent) => {
     children: [
       {
         id: '0',
-        type: 'choice',
+        type: 'ch',
         p:
-          'The villager from last week returns to collect their promised potion:<br>' +
+          'The villager from last week returns to collect their promised potion:' +
+          BR +
           potionName,
         choices: [
           {
             text: 'Give them the potion.',
-            next: '1',
+            n: '1',
             conditionText: `HAS(${potionName})`,
           },
           {
             text: 'Say you cannot help. The Black Cat will be most displeased.',
-            next: '2',
+            n: '2',
           },
         ],
       },
       {
         id: '1',
-        type: 'modify',
+        type: 'm',
         p: 'You sell the potion to the villager.',
-        mod: [`-${potionName}`, '3 GOLD'],
-        next: 'e',
+        mod: [`-${potionName}`, '7 GOLD'],
+        n: 'e',
       },
       {
         id: '2',
-        type: 'modify',
+        type: 'm',
         p: 'The disappointed villager leaves.',
-        mod: [`-2 FAVOR_CAT`],
-        next: 'e',
+        mod: [`-2 ${ResourceType.FAV_CAT}`],
+        n: 'e',
       },
     ],
   });
   return eventState;
+};
+
+export const createBlackCatEvent = (originalBlackCatEvent: GameEvent) => {
+  const event = copyObject(originalBlackCatEvent);
+  const choiceChild = event.children.find(ch => ch.id === 'ch');
+
+  const potentialRewards = [
+    ResourceType.EFF_FFIR,
+    ResourceType.EFF_FHEA,
+    ResourceType.EFF_FGRO,
+  ];
+
+  const potentialChoices = [
+    {
+      text: '1 Random Dice Upgrade',
+      n: 'dice',
+    },
+    // {
+    //   text: '1 BLUEPRINT_SPECIALPETAL',
+    //   n: 'bed',
+    // },
+  ];
+  choiceChild.choices = potentialChoices;
+
+  event.children.push(
+    {
+      id: 'dice',
+      type: 'm',
+      p: "The Black Cat's eyes glow, and you feel a new power within you.",
+      mod: [`1 ${randInArray(potentialRewards)}`],
+      n: 'e',
+    },
+    {
+      id: 'bed',
+      type: 'm',
+      p: 'The cat blinks and you have a new seed bed.',
+      mod: [`1 ${ResourceType.BP_SPE}`],
+      n: 'e',
+    }
+  );
+
+  return event;
 };

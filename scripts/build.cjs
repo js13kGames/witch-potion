@@ -12,9 +12,10 @@ const { execFileSync } = require('child_process');
 
 const USE_ROAD_ROLLER = true;
 const USE_RR_CONFIG = true;
+const USE_DISABLE_THROW = true;
 
 // swap em out until you get the smallest size
-const MINIFIER = 'uglifyjs';
+const MINIFIER = 'terser';
 
 const execAsync = async command => {
   return new Promise((resolve, reject) => {
@@ -254,10 +255,16 @@ function processCodeFile(text) {
   const textWithoutImports = text.slice(endImportsInd + 1);
 
   // remove export statements + replace const with let
-  return textWithoutImports
+  let processedText = textWithoutImports
     .replace(/export /g, '')
-    .replace(/const /g, 'let ')
-    .replace(/res\/(.*).png/, '$1.png');
+    .replace(/const /g, 'let ');
+
+  // Replace throw new Error(...) with throw 1 if flag is enabled
+  if (USE_DISABLE_THROW) {
+    processedText = processedText.replace(/throw\s+new\s+Error\([^)]*\)/g, 'throw 1');
+  }
+
+  return processedText;
 }
 
 const build = async () => {

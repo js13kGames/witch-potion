@@ -21,7 +21,7 @@ let defaultEventState = {
                 /*@preserve*/
                 id: 'day',
                 /*@preserve*/
-                type: 'choice',
+                type: 'ch',
                 /*@preserve*/
                 p: 'You are at your shop. What would you like to do today?',
                 /*@preserve*/
@@ -30,25 +30,25 @@ let defaultEventState = {
                         /*@preserve*/
                         text: 'Visit the reagent merchant.',
                         /*@preserve*/
-                        next: 'merch',
+                        n: 'merch',
                     },
                     {
                         /*@preserve*/
                         text: 'Mix potions.',
                         /*@preserve*/
-                        next: 'pot',
+                        n: 'pot',
                     },
                     {
                         /*@preserve*/
                         text: 'View inventory.',
                         /*@preserve*/
-                        next: 'inv',
+                        n: 'inv',
                     },
                     {
                         /*@preserve*/
                         text: 'End the day.',
                         /*@preserve*/
-                        next: 'nextDay',
+                        n: 'nextDay',
                     },
                 ],
             },
@@ -71,19 +71,19 @@ let defaultEventState = {
             //       /*@preserve*/
             //       text: 'Buying.',
             //       /*@preserve*/
-            //       next: 'merchBuying',
+            //       n: 'merchBuying',
             //     },
             //     {
             //       /*@preserve*/
             //       text: 'Selling.',
             //       /*@preserve*/
-            //       next: 'merchSelling',
+            //       n: 'merchSelling',
             //     },
             //     {
             //       /*@preserve*/
             //       text: 'Go back.',
             //       /*@preserve*/
-            //       next: 'day',
+            //       n: 'day',
             //     },
             //   ],
             // },
@@ -98,6 +98,7 @@ let DIV = 'div';
 let BUTTON = 'button';
 let P = 'p';
 let SPAN = 'span';
+let BR = '<br>';
 let TRANSITION = 'transition';
 let TRANSFORM = 'transform';
 let INNER_HTML = 'innerHTML';
@@ -182,213 +183,213 @@ function copyObject(obj) {
 }
 let ARG_DELIMITER = '|';
 let CONDITION_DELIMITER = ',';
-class EventParser {
-    lines = [];
-    currentLine = 0;
-    parseMultipleEvents(eventsString) {
-        let events = [];
-        let lines = eventsString.trim().split('\n');
-        let currentEventLines = [];
-        let _parseEvent = (eventString) => {
-            try {
-                let event = this.parseEventString(eventString);
-                events.push(event);
-            }
-            catch (error) {
-                console.warn('Failed to parse last event:', error);
-            }
+let startsWith = (line, prefix) => {
+    return line.startsWith(prefix);
+};
+function parseMultipleEvents(eventsString) {
+    let events = [];
+    let lines = eventsString.trim().split('\n');
+    let currentEventLines = [];
+    let _parseEvent = (eventString) => {
+        try {
+            let event = parseEventString(eventString);
+            events.push(event);
+        }
+        catch (error) {
+            console.warn('Failed to parse last event:', error);
+        }
+    };
+    for (let line of lines) {
+        let trimmedLine = line.trim();
+        if (startsWith(trimmedLine, '#') && currentEventLines.length > 0) {
+            let currentEventString = currentEventLines.join('\n');
+            _parseEvent(currentEventString);
+            currentEventLines = [trimmedLine];
+        }
+        else {
+            currentEventLines.push(trimmedLine);
+        }
+    }
+    if (currentEventLines.length > 0) {
+        let lastEventString = currentEventLines.join('\n');
+        _parseEvent(lastEventString);
+    }
+    return events;
+}
+function parseEventString(eventString) {
+    let context = {
+        lines: splitDelimTrim(eventString.trim(), '\n').filter(line => line.length > 0),
+        currentLine: 0
+    };
+    let headerLine = context.lines[context.currentLine];
+    if (!startsWith(headerLine, '#')) {
+        throw 1;
+    }
+    let headerMatch = headerLine.match(/^#(.+?),(.+)$/);
+    if (!headerMatch) {
+        throw 1;
+    }
+    let title = headerMatch[1].trim();
+    let icon = headerMatch[2].trim();
+    context.currentLine++;
+    let children = [];
+    let event = {
+        title,
+        icon,
+        children,
+        vars: {},
+    };
+    while (context.currentLine < context.lines.length) {
+        let child = parseChild(context, event);
+        if (child) {
+            children.push(child);
+        }
+    }
+    return event;
+}
+function parseChild(context, event) {
+    if (context.currentLine >= context.lines.length) {
+        return null;
+    }
+    let line = context.lines[context.currentLine];
+    if (startsWith(line, '@')) {
+        let varMatch = line.match(/^(@.+)=(.+)$/);
+        if (!varMatch) {
+            throw 1;
+        }
+        let varName = varMatch[1].trim();
+        let varValue = varMatch[2].trim();
+        event.vars[varName] = {
+            str: varValue,
+            parsed: undefined,
         };
-        for (let line of lines) {
-            let trimmedLine = line.trim();
-            if (trimmedLine.startsWith('#') && currentEventLines.length > 0) {
-                let currentEventString = currentEventLines.join('\n');
-                _parseEvent(currentEventString);
-                currentEventLines = [trimmedLine];
-            }
-            else {
-                currentEventLines.push(trimmedLine);
-            }
-        }
-        if (currentEventLines.length > 0) {
-            let lastEventString = currentEventLines.join('\n');
-            _parseEvent(lastEventString);
-        }
-        return events;
+        context.currentLine++;
+        return null;
     }
-    parseEventString(eventString) {
-        this.lines = splitDelimTrim(eventString.trim(), '\n').filter(line => line.length > 0);
-        this.currentLine = 0;
-        let headerLine = this.lines[this.currentLine];
-        if (!headerLine.startsWith('#')) {
-            throw new Error('Event must start with # followed by title and icon');
-        }
-        let headerMatch = headerLine.match(/^#(.+?),(.+)$/);
-        if (!headerMatch) {
-            throw new Error('Invalid header format. Expected: #Title,icon_name');
-        }
-        let title = headerMatch[1].trim();
-        let icon = headerMatch[2].trim();
-        this.currentLine++;
-        let children = [];
-        let event = {
-            title,
-            icon,
-            children,
-            vars: {},
-        };
-        while (this.currentLine < this.lines.length) {
-            let child = this.parseChild(event);
-            if (child) {
-                children.push(child);
-            }
-        }
-        return event;
+    if (!startsWith(line, '>')) {
+        context.currentLine++;
+        return null;
     }
-    parseChild(event) {
-        if (this.currentLine >= this.lines.length) {
-            return null;
-        }
-        let line = this.lines[this.currentLine];
-        if (line.startsWith('@')) {
-            let varMatch = line.match(/^(@.+)=(.+)$/);
-            if (!varMatch) {
-                throw new Error(`Invalid variable format: ${line}`);
-            }
-            let varName = varMatch[1].trim();
-            let varValue = varMatch[2].trim();
-            event.vars[varName] = {
-                str: varValue,
-                parsed: undefined,
-            };
-            this.currentLine++;
-            return null;
-        }
-        if (!line.startsWith('>')) {
-            this.currentLine++;
-            return null;
-        }
-        let childMatch = line.match(/^>([\d\w]+|[a-z]),(\w+):?$/);
-        if (!childMatch) {
-            throw new Error(`Invalid child format at line ${this.currentLine + 1}: ${line}`);
-        }
-        let id = childMatch[1];
-        let type = childMatch[2];
-        this.currentLine++;
-        let child = { id, type };
-        while (this.currentLine < this.lines.length) {
-            let contentLine = this.lines[this.currentLine];
-            if (contentLine.startsWith('>')) {
-                break;
-            }
-            if (contentLine.startsWith('+p:')) {
-                let text = contentLine.substring(3).trim();
-                child.p = text;
-            }
-            else if (contentLine.startsWith('+c:')) {
-                if (child.type !== 'choice') {
-                    throw new Error(`Cannot add choice to non-choice child: ${child.id}`);
-                }
-                if (!child.choices) {
-                    child.choices = [];
-                }
-                let text = contentLine;
-                let choice = this.parseChoice(text);
-                child.choices.push(choice);
-            }
-            else if (contentLine.startsWith('+dice:')) {
-                if (!child.rolls) {
-                    child.rolls = [];
-                }
-                let dice = this.parseDice(contentLine);
-                child.rolls.push(...dice);
-            }
-            else if (contentLine.startsWith('+pass:')) {
-                let passNode = contentLine.substring(6).trim();
-                child.pass = passNode;
-            }
-            else if (contentLine.startsWith('+fail:')) {
-                let failNode = contentLine.substring(6).trim();
-                child.fail = failNode;
-            }
-            else if (contentLine.startsWith('+add:') ||
-                contentLine.startsWith('+rem:')) {
-                if (!child.mod) {
-                    child.mod = [];
-                }
-                let resources = this.parseResources(contentLine);
-                child.mod.push(...resources);
-            }
-            else if (contentLine.startsWith('+next:')) {
-                if (child.type === 'choice') {
-                    throw new Error(`Cannot add next to choice child: ${child.id}`);
-                }
-                child.next = contentLine.substring(6).trim();
-            }
-            this.currentLine++;
-        }
-        return child;
+    let childMatch = line.match(/^>([\d\w]+|[a-z]),(\w+):?$/);
+    if (!childMatch) {
+        throw 1;
     }
-    parseChoice(choiceLine) {
-        let [next, text, conditionText] = splitDelimTrim(choiceLine.slice(3), ARG_DELIMITER);
-        return {
-            text,
-            conditionText,
-            next,
-        };
+    let id = childMatch[1];
+    let type = childMatch[2];
+    context.currentLine++;
+    let child = { id, type };
+    while (context.currentLine < context.lines.length) {
+        let contentLine = context.lines[context.currentLine];
+        if (startsWith(contentLine, '>')) {
+            break;
+        }
+        if (startsWith(contentLine, '+p:')) {
+            let text = contentLine.slice(3).trim();
+            child.p = text;
+        }
+        else if (startsWith(contentLine, '+c:')) {
+            if (child.type !== 'ch') {
+                throw 1;
+            }
+            if (!child.choices) {
+                child.choices = [];
+            }
+            let text = contentLine;
+            let choice = parseChoice(text);
+            child.choices.push(choice);
+        }
+        else if (startsWith(contentLine, '+d:')) {
+            if (!child.rolls) {
+                child.rolls = [];
+            }
+            let dice = parseDice(contentLine);
+            child.rolls.push(...dice);
+        }
+        else if (startsWith(contentLine, '+pass:')) {
+            let passNode = contentLine.slice(6).trim();
+            child.pass = passNode;
+        }
+        else if (startsWith(contentLine, '+fail:')) {
+            let failNode = contentLine.slice(6).trim();
+            child.fail = failNode;
+        }
+        else if (startsWith(contentLine, '+add:') ||
+            startsWith(contentLine, '+rem:')) {
+            if (!child.mod) {
+                child.mod = [];
+            }
+            let resources = parseResources(contentLine);
+            child.mod.push(...resources);
+        }
+        else if (startsWith(contentLine, '+n:')) {
+            if (child.type === 'ch') {
+                console.error(child, contentLine);
+                throw 1;
+            }
+            child.n = contentLine.slice(3).trim();
+        }
+        context.currentLine++;
     }
-    parseDice(diceLine) {
-        let diceMatch = diceLine.match(/^\+dice:(.+)$/);
+    return child;
+}
+function parseChoice(choiceLine) {
+    let [n, text, conditionText] = splitDelimTrim(choiceLine.slice(3), ARG_DELIMITER);
+    return {
+        text,
+        conditionText,
+        n,
+    };
+}
+function parseDice(diceLine) {
+    let diceMatch = diceLine.match(/^\+d:(.+)$/);
+    if (!diceMatch) {
+        throw 1;
+    }
+    let dicePart = diceMatch[1].trim();
+    let diceStrings = splitDelimTrim(dicePart, ARG_DELIMITER);
+    let rolls = [];
+    for (let diceString of diceStrings) {
+        let diceMatch = diceString.match(/^(.*)$/);
         if (!diceMatch) {
-            throw new Error(`Invalid dice format: ${diceLine}`);
+            throw 1;
         }
-        let dicePart = diceMatch[1].trim();
-        let diceStrings = splitDelimTrim(dicePart, ARG_DELIMITER);
-        let rolls = [];
-        for (let diceString of diceStrings) {
-            let diceMatch = diceString.match(/^(.*)$/);
-            if (!diceMatch) {
-                throw new Error(`Invalid dice format string: ${diceString}`);
-            }
-            let resourceText = diceMatch[1];
-            rolls.push(resourceText);
-        }
-        return rolls;
+        let resourceText = diceMatch[1];
+        rolls.push(resourceText);
     }
-    parseResources(resourceLine) {
-        let isAdd = resourceLine.startsWith('+add:');
-        let isRemove = resourceLine.startsWith('+rem:');
-        if (!isAdd && !isRemove) {
-            throw new Error(`Invalid resource line: ${resourceLine}`);
-        }
-        let resourcePart = resourceLine.substring(isAdd ? 5 : 6).trim();
-        let resourceStrings = splitDelimTrim(resourcePart, ARG_DELIMITER);
-        let resources = [];
-        for (let resourceString of resourceStrings) {
-            let resourceMatch = resourceString.match(/^(.*)$/);
-            // console.log('MATCH RESOURCE STRING', resourceString, resourceMatch);
-            if (!resourceMatch) {
-                throw new Error(`Invalid resource format: ${resourceString}`);
-            }
-            let resourceText = resourceMatch[1];
-            resources.push(isRemove ? '-' + resourceText : resourceText);
-        }
-        return resources;
+    return rolls;
+}
+function parseResources(resourceLine) {
+    let isAdd = startsWith(resourceLine, '+add:');
+    let isRemove = startsWith(resourceLine, '+rem:');
+    if (!isAdd && !isRemove) {
+        throw 1;
     }
+    let resourcePart = resourceLine.slice(isAdd ? 5 : 6).trim();
+    let resourceStrings = splitDelimTrim(resourcePart, ARG_DELIMITER);
+    let resources = [];
+    for (let resourceString of resourceStrings) {
+        let resourceMatch = resourceString.match(/^(.*)$/);
+        // console.log('MATCH RESOURCE STRING', resourceString, resourceMatch);
+        if (!resourceMatch) {
+            throw 1;
+        }
+        let resourceText = resourceMatch[1];
+        resources.push(isRemove ? '-' + resourceText : resourceText);
+    }
+    return resources;
 }
 // Helper function to parse an event string
 function parseEvent(eventString) {
-    let parser = new EventParser();
-    return parser.parseEventString(eventString);
+    return parseEventString(eventString);
 }
 // Helper function to parse multiple events from a string
 function parseEvents(eventsString) {
-    let parser = new EventParser();
-    return parser.parseMultipleEvents(eventsString);
+    return parseMultipleEvents(eventsString);
 }
 let runEvent = (state, event) => {
     let eventState = createEventState(event);
     evaluateVars(state, eventState, event);
-    replaceVars(eventState, event);
+    replaceVars(state, eventState, event);
     let modal = state.ui.eventModal;
     if (!modal) {
         modal = createEventModal(eventState);
@@ -404,7 +405,7 @@ let runEvent = (state, event) => {
 let gameEventRunChild = (state, eventState, child) => {
     let modal = state.ui.eventModal;
     if (!modal) {
-        throw new Error('Cannot run child: No event modal found');
+        throw 1;
     }
     if (child.type === 'end') {
         if (child.id === 'nextDay') {
@@ -421,6 +422,12 @@ let gameEventRunChild = (state, eventState, child) => {
             gameCreateMerchantEvents(state, newEventState);
             gameCreateBrewingEvents(state, newEventState);
             gameCreateViewInventoryEvents(state, newEventState);
+            gameCreateAntiCursePotionEvent(state, newEventState);
+            if (state.day % 7 === 4) {
+                appendChild(modal.content, createElement('p', {
+                    [INNER_HTML]: `<${SPAN} style="color: brown;">You feel that the Black Cat will visit you tomorrow.</${SPAN}>`,
+                }));
+            }
             gameEventRunChild(state, newEventState, newEventState.event.children[0]);
         }
         return;
@@ -448,7 +455,11 @@ let gameEventRunChild = (state, eventState, child) => {
     if (child.mod) {
         child.parsedMod = [];
         for (let modifyResource of child.mod) {
+            // eslint-disable-next-line prefer-const
             let [amt, resource] = parseAmountAndResource(modifyResource);
+            if (Math.abs(amt) === 99) {
+                amt = Math.sign(amt) * gameStateGetResourceCount(state, resource);
+            }
             child.parsedMod.push({
                 amt,
                 resource,
@@ -466,7 +477,7 @@ let gameEventRunChild = (state, eventState, child) => {
     }
     eventModalAddChild(modal, child, eventState, state);
     setPrimaryResources(state.ui.res, state);
-    setFavorMeterPct(state.ui.favorMeter, gameStateGetResourceCount(state, ResourceType.FAVOR_CAT));
+    setFavorMeterPct(state.ui.favorMeter, gameStateGetResourceCount(state, ResourceType.FAV_CAT));
 };
 let gameEventGetChild = (eventState, childId) => {
     if (childId === 'e') {
@@ -477,7 +488,7 @@ let gameEventGetChild = (eventState, childId) => {
     }
     let child = eventState.event.children.find(child => child.id === childId);
     if (!child) {
-        throw new Error(`Cannot getChild: Child with id ${childId} not found in event ${eventState.event.title}`);
+        throw 1;
     }
     return child;
 };
@@ -496,13 +507,13 @@ let gameEventParseResourceFunc2 = (text, func, args, state) => {
             let amtLower = parseInt(spl[0]);
             let amtUpper = parseInt(spl[1]);
             if (isNaN(amtLower) || isNaN(amtUpper)) {
-                throw new Error(`Invalid RAND amount: ${amtText}`);
+                throw 1;
             }
             return randInRange(amtLower, amtUpper);
         }
         let amt = parseInt(amtText);
         if (isNaN(amt)) {
-            throw new Error(`Invalid ARG amount: ${amtText}`);
+            throw 1;
         }
         return amt;
     };
@@ -518,53 +529,67 @@ let gameEventParseResourceFunc2 = (text, func, args, state) => {
         }
         if (resToReturn.length === 0) {
             console.log('No resources found for', func, args);
+            // if (requireExist && ) {
             return [0, ResourceType.GOLD];
         }
         return [amt + 1, randInArray(resToReturn)];
     };
     let funcResults = {
-        [ResourceTypeFunc.FUNC_RANDOM_HERB_TIER_1]: () => {
+        [ResourceTypeFunc.FUNC_H1]: () => {
             return _parseArgsForAmtFunc(HERB_TIER_1_NAMES);
         },
-        [ResourceTypeFunc.FUNC_RANDOM_HERB_TIER_2]: () => {
+        [ResourceTypeFunc.FUNC_H2]: () => {
             return _parseArgsForAmtFunc(HERB_TIER_2_NAMES);
         },
-        [ResourceTypeFunc.FUNC_RANDOM_HERB_ANY]: () => {
+        [ResourceTypeFunc.FUNC_H3]: () => {
+            return _parseArgsForAmtFunc(HERB_TIER_2_NAMES);
+        },
+        [ResourceTypeFunc.FUNC_H_ANY]: () => {
             return _parseArgsForAmtFunc(HERB_NAMES);
         },
-        [ResourceTypeFunc.FUNC_RANDOM_REAGENT_TIER_1]: () => {
+        [ResourceTypeFunc.FUNC_R1]: () => {
             return _parseArgsForAmtFunc(REAGENT_TIER_1_NAMES);
         },
-        [ResourceTypeFunc.FUNC_RANDOM_REAGENT_TIER_2]: () => {
+        [ResourceTypeFunc.FUNC_R2]: () => {
             return _parseArgsForAmtFunc(REAGENT_TIER_2_NAMES);
         },
-        [ResourceTypeFunc.FUNC_RANDOM_REAGENT_ANY]: () => {
+        [ResourceTypeFunc.FUNC_R_ANY]: () => {
             return _parseArgsForAmtFunc(REAGENT_NAMES);
         },
-        [ResourceTypeFunc.FUNC_RANDOM_POTION_TIER_1]: () => {
-            return _parseArgsForAmtFunc(POTION_NAMES.filter(p => p !== ResourceType.POT_LIQUID_LUCK));
+        [ResourceTypeFunc.FUNC_P1]: () => {
+            return _parseArgsForAmtFunc(POTION_NAMES.filter(p => p !== ResourceType.POT_LIQ));
         },
-        [ResourceTypeFunc.FUNC_RANDOM_POTION_ANY]: () => {
+        [ResourceTypeFunc.FUNC_P_ANY]: () => {
             return _parseArgsForAmtFunc(POTION_NAMES);
         },
-        [ResourceTypeFunc.FUNC_RANDOM_GOLD]: () => {
+        [ResourceTypeFunc.FUNC_G]: () => {
             return _parseArgsForAmtFunc([ResourceType.GOLD]);
         },
-        [ResourceTypeFunc.FUNC_RANDOM_FIRE_MAGIC]: () => {
-            return _parseArgsForAmtFunc([ResourceType.DICE_FIRE_MAGIC]);
+        [ResourceTypeFunc.FUNC_FIRE]: () => {
+            return _parseArgsForAmtFunc([ResourceType.DICE_FIR]);
         },
-        [ResourceTypeFunc.FUNC_RANDOM_HEART_MAGIC]: () => {
-            return _parseArgsForAmtFunc([ResourceType.DICE_HEART_MAGIC]);
+        [ResourceTypeFunc.FUNC_HEART]: () => {
+            return _parseArgsForAmtFunc([ResourceType.DICE_HEA]);
         },
-        [ResourceTypeFunc.FUNC_RANDOM_GROW]: () => {
-            return _parseArgsForAmtFunc([ResourceType.DICE_GROW]);
+        [ResourceTypeFunc.FUNC_GROW]: () => {
+            return _parseArgsForAmtFunc([ResourceType.DICE_GRO]);
+        },
+        [ResourceTypeFunc.FUNC_ING]: () => {
+            if (args[0].includes('@')) {
+                return [18, text];
+            }
+            let [, resource] = parseAmountAndResource(args.join(' '));
+            console.log('RES', args);
+            let recipe = RECIPES[resource];
+            let amounts = recipeToStringArr(recipe);
+            return [18, amounts.join(ARG_DELIMITER)];
         },
     };
     let funcResult = funcResults[func];
     if (funcResult) {
         return funcResult();
     }
-    throw new Error(`Unknown resource function: "${func}" after parsing "${text}"`);
+    throw 1;
 };
 let gameEventReplaceEnumWithIcons = (text, highlightColor) => {
     let result = text;
@@ -580,15 +605,16 @@ let gameEventReplaceEnumWithIcons = (text, highlightColor) => {
     for (let [enumValue, enumName] of Object.entries(obj)) {
         let labelObj = Labels[enumValue];
         if (!labelObj) {
-            throw new Error(`Unknown enum value: ${enumValue}`);
+            throw 1;
         }
         let label = highlightText(labelObj.l, highlightColor);
         // if (DICE_NAMES.includes(enumValue as ResourceType)) {
         //   label = '';
         // }
         let replacement = `${label}${Labels[enumValue].icon}`;
-        result = result.replaceAll(enumName, replacement);
+        result = result.replaceAll(ResourceType[enumName], replacement);
     }
+    text = text.replaceAll('Infinity', 'all');
     return result;
 };
 let gameEventParseCondition = (state, gameEventState, conditionString) => {
@@ -597,9 +623,10 @@ let gameEventParseCondition = (state, gameEventState, conditionString) => {
     }
     let arr = splitDelimTrim(conditionString, CONDITION_DELIMITER);
     let resFuncs = [];
-    for (let cond of arr) {
+    for (let i = 0; i < arr.length; i++) {
+        let cond = arr[i];
         let _parseHasResource = (str) => {
-            let arr = parseFunc(str, ConditionFunc.HAS_RESOURCE);
+            let arr = parseFunc(str, ConditionFunc.HAS_RES);
             if (!arr) {
                 return;
             }
@@ -608,13 +635,32 @@ let gameEventParseCondition = (state, gameEventState, conditionString) => {
                 return gameStateHasResource(state, resource, amt);
             };
         };
+        let _parseHasIngredients = (str) => {
+            let arr = parseFunc(str, ConditionFunc.HAS_ING);
+            if (!arr) {
+                return;
+            }
+            let [, resource] = parseAmountAndResource(arr[1].join(' '));
+            let recipe = RECIPES[resource];
+            let amounts = recipeToStringArr(recipe);
+            return () => {
+                return amounts.every(a => {
+                    let [_amt, resource] = parseAmountAndResource(a);
+                    return gameStateHasResource(state, resource, _amt);
+                });
+            };
+        };
         let hasResource = _parseHasResource(cond);
         if (hasResource) {
             resFuncs.push(hasResource);
         }
+        let hasIngredients = _parseHasIngredients(cond);
+        if (hasIngredients) {
+            resFuncs.push(hasIngredients);
+        }
     }
     if (resFuncs.length === 0) {
-        throw new Error(`Unknown condition format: ${conditionString}`);
+        throw 1;
     }
     return () => {
         return resFuncs.every(func => func());
@@ -629,10 +675,11 @@ let replaceVarsInText = (text, evalVars) => {
 let parseAmountAndResource = (text) => {
     let arr = text.split(' ');
     if (arr.length === 2) {
-        // if (arr[1] === 'ANY') {
-        //   return [1, 'ANY'];
-        // }
-        return [parseInt(arr[0]), stringToResourceType(arr[1])];
+        let t = stringToResourceType(arr[1]);
+        if (arr[0].includes('ALL')) {
+            return [arr[0][0] === '-' ? -99 : 99, t];
+        }
+        return [parseInt(arr[0]), t];
     }
     return [1, ResourceType.GOLD];
 };
@@ -650,6 +697,9 @@ let parseFunc = (text, expectedFunc) => {
 let evaluateVars = (state, eventState, event) => {
     for (let varName in event.vars) {
         let obj = event.vars[varName];
+        if (obj.parsed) {
+            continue;
+        }
         let parsedFunc = parseFunc(obj.str);
         if (parsedFunc) {
             let existingParsed = eventState.evalVars[varName];
@@ -660,6 +710,9 @@ let evaluateVars = (state, eventState, event) => {
             let [func, args, fullMatch] = parsedFunc;
             let [amt, resourceName] = gameEventParseResourceFunc2(fullMatch, func, args, state);
             let str = amt + ' ' + resourceName;
+            if (amt === 18) {
+                str = resourceName;
+            }
             obj.parsed = str;
             eventState.evalVars[varName] = str;
         }
@@ -669,7 +722,16 @@ let evaluateVars = (state, eventState, event) => {
         }
     }
 };
-let replaceVars = (eventState, event) => {
+let replaceVars = (state, eventState, event) => {
+    for (let varName in event.vars) {
+        let obj = event.vars[varName];
+        if (obj.parsed.includes('@')) {
+            obj.str = replaceVarsInText(obj.str, eventState.evalVars);
+            delete eventState.evalVars[varName];
+            delete obj.parsed;
+        }
+    }
+    evaluateVars(state, eventState, event);
     for (let child of event.children) {
         if (child.p) {
             child.p = replaceVarsInText(child.p, eventState.evalVars);
@@ -689,158 +751,175 @@ let replaceVars = (eventState, event) => {
             }
         }
         if (child.mod) {
+            let newMod = [];
             for (let i = 0; i < child.mod.length; i++) {
                 let mod = child.mod[i];
-                child.mod[i] = replaceVarsInText(mod, eventState.evalVars);
+                let result = replaceVarsInText(mod, eventState.evalVars);
+                let arr = splitDelimTrim(result, ARG_DELIMITER);
+                let isNegative = result[0] === '-';
+                if (arr.length === 1) {
+                    newMod.push(result);
+                }
+                else {
+                    newMod.push(...arr.map((a, i) => (isNegative && i > 0 ? '-' + a : a)));
+                }
             }
+            child.mod = newMod;
         }
     }
 };
 var ResourceType;
 (function (ResourceType) {
     ResourceType["GOLD"] = "GOLD";
-    ResourceType["HERB_SPARKLEWEED"] = "HERB_SPARKLEWEED";
-    ResourceType["HERB_BRAMBLEBERRY"] = "HERB_BRAMBLEBERRY";
-    ResourceType["HERB_SPECIALPETAL"] = "HERB_SPECIALPETAL";
-    ResourceType["REAG_SKY_DUST"] = "REAG_SKY_DUST";
-    ResourceType["REAG_SUN_POWDER"] = "REAG_SUN_POWDER";
-    ResourceType["POT_COLD_CURE"] = "POT_COLD_CURE";
-    ResourceType["POT_DRAGON_SWEAT"] = "POT_DRAGON_SWEAT";
-    ResourceType["POT_MIASMA_OF_MIDNIGHT"] = "POT_MIASMA_OF_MIDNIGHT";
-    ResourceType["POT_TINCTURE_OF_TASTE"] = "POT_TINCTURE_OF_TASTE";
-    // POT_REDO = 'POT_REDO',
-    ResourceType["POT_EMPATHY"] = "POT_EMPATHY";
-    ResourceType["POT_GROWTH"] = "POT_GROWTH";
-    ResourceType["POT_LIQUID_LUCK"] = "POT_LIQUID_LUCK";
-    ResourceType["POT_POWER_POTION"] = "POT_POWER_POTION";
-    ResourceType["DICE_FIRE_MAGIC"] = "DICE_FIRE_MAGIC";
-    ResourceType["DICE_HEART_MAGIC"] = "DICE_HEART_MAGIC";
-    ResourceType["DICE_GROW"] = "DICE_GROW";
+    ResourceType["HERB_SPA"] = "HERB_SPARKLEWEED";
+    ResourceType["HERB_BRA"] = "HERB_BRAMBLEBERRY";
+    ResourceType["HERB_SPE"] = "HERB_SPECIALPETAL";
+    ResourceType["REAG_SKY"] = "REAG_SKY_DUST";
+    ResourceType["REAG_SUN"] = "REAG_SUN_POWDER";
+    ResourceType["POT_COL"] = "POT_COLD_CURE";
+    ResourceType["POT_DRA"] = "POT_DRAGON_SWEAT";
+    ResourceType["POT_MIA"] = "POT_MIASMA_OF_MIDNIGHT";
+    ResourceType["POT_TIN"] = "POT_TINCTURE_OF_TASTE";
+    ResourceType["POT_EMP"] = "POT_EMPATHY";
+    ResourceType["POT_GRO"] = "POT_GROWTH";
+    ResourceType["POT_LIQ"] = "POT_LIQUID_LUCK";
+    ResourceType["POT_POW"] = "POT_POWER_POTION";
+    ResourceType["POT_ANT"] = "POT_ANTI_CURSE";
+    ResourceType["DICE_FIR"] = "DICE_FIRE_MAGIC";
+    ResourceType["DICE_HEA"] = "DICE_HEART_MAGIC";
+    ResourceType["DICE_GRO"] = "DICE_GROW";
+    ResourceType["DICE_CUR"] = "DICE_CURSE";
+    ResourceType["DICE_BLA"] = "DICE_BLANK";
     ResourceType["DICE_ANY"] = "ANY";
     ResourceType["DICE_NEW"] = "DICE_NEW";
-    ResourceType["BLUEPRINT_SPARKLEWEED"] = "BLUEPRINT_SPARKLEWEED";
-    ResourceType["BLUEPRINT_BRAMBLEBERRY"] = "BLUEPRINT_BRAMBLEBERRY";
-    ResourceType["BLUEPRINT_SPECIALPETAL"] = "BLUEPRINT_SPECIALPETAL";
-    ResourceType["CONTRACT_VILLAGER"] = "CONTRACT_VILLAGER";
-    ResourceType["CONTRACT_CAT"] = "CONTRACT_CAT";
-    ResourceType["FAVOR_CAT"] = "FAVOR_CAT";
-    ResourceType["EFFECT_COLD"] = "EFFECT_COLD";
-    ResourceType["EFFECT_GREEN_THUMB"] = "EFFECT_GREEN_THUMB";
+    ResourceType["BP_SPA"] = "BLUEPRINT_SPARKLEWEED";
+    ResourceType["BP_BRA"] = "BLUEPRINT_BRAMBLEBERRY";
+    ResourceType["BP_SPE"] = "BLUEPRINT_SPECIALPETAL";
+    ResourceType["C_VIL"] = "CONTRACT_VILLAGER";
+    ResourceType["FAV_CAT"] = "FAVOR_CAT";
+    ResourceType["EFF_COL"] = "EFFECT_COLD";
+    ResourceType["EFF_GRE"] = "EFFECT_GREEN_THUMB";
+    ResourceType["EFF_FFIR"] = "EFFECT_FACE_ADD_FIRE";
+    ResourceType["EFF_FHEA"] = "EFFECT_FACE_ADD_HEART";
+    ResourceType["EFF_FGRO"] = "EFFECT_FACE_ADD_GROW";
+    ResourceType["EFF_FCUR"] = "EFFECT_FACE_ADD_CURSE";
+    ResourceType["EFF_RMCUR"] = "EFFECT_REMOVE_CURSE";
+    ResourceType["EFF_REPLCUR"] = "EFFECT_REPLACE_CURSE";
 })(ResourceType || (ResourceType = {}));
 let DICE_NAMES = [
-    ResourceType.DICE_FIRE_MAGIC,
-    ResourceType.DICE_HEART_MAGIC,
-    ResourceType.DICE_GROW,
+    ResourceType.DICE_FIR,
+    ResourceType.DICE_HEA,
+    ResourceType.DICE_GRO,
 ];
 let HERB_NAMES = [
-    ResourceType.HERB_SPARKLEWEED,
-    ResourceType.HERB_BRAMBLEBERRY,
-    ResourceType.HERB_SPECIALPETAL,
+    ResourceType.HERB_SPA,
+    ResourceType.HERB_BRA,
+    ResourceType.HERB_SPE,
 ];
-let HERB_TIER_1_NAMES = [
-    ResourceType.HERB_SPARKLEWEED,
-    ResourceType.HERB_BRAMBLEBERRY,
-];
-let HERB_TIER_2_NAMES = [ResourceType.HERB_SPECIALPETAL];
-let REAGENT_NAMES = [
-    ResourceType.REAG_SKY_DUST,
-    ResourceType.REAG_SUN_POWDER,
-];
-let REAGENT_TIER_1_NAMES = [ResourceType.REAG_SKY_DUST];
-let REAGENT_TIER_2_NAMES = [ResourceType.REAG_SUN_POWDER];
+let HERB_TIER_1_NAMES = [ResourceType.HERB_SPA, ResourceType.HERB_BRA];
+let HERB_TIER_2_NAMES = [ResourceType.HERB_SPE];
+let REAGENT_NAMES = [ResourceType.REAG_SUN, ResourceType.REAG_SKY];
+let REAGENT_TIER_1_NAMES = [ResourceType.REAG_SUN];
+let REAGENT_TIER_2_NAMES = [ResourceType.REAG_SKY];
 let POTION_NAMES = [
-    ResourceType.POT_COLD_CURE,
-    ResourceType.POT_DRAGON_SWEAT,
-    ResourceType.POT_MIASMA_OF_MIDNIGHT,
-    ResourceType.POT_TINCTURE_OF_TASTE,
-    ResourceType.POT_GROWTH,
-    ResourceType.POT_POWER_POTION,
-    ResourceType.POT_LIQUID_LUCK,
+    ResourceType.POT_GRO,
+    ResourceType.POT_POW,
+    ResourceType.POT_LIQ,
+    ResourceType.POT_COL,
+    ResourceType.POT_DRA,
+    ResourceType.POT_MIA,
+    ResourceType.POT_TIN,
+    ResourceType.POT_ANT,
 ];
 let BLUEPRINT_NAMES = [
-    ResourceType.BLUEPRINT_SPARKLEWEED,
-    ResourceType.BLUEPRINT_BRAMBLEBERRY,
-    ResourceType.BLUEPRINT_SPECIALPETAL,
+    ResourceType.BP_SPA,
+    ResourceType.BP_BRA,
+    ResourceType.BP_SPE,
 ];
 let BUY_COSTS = {
-    [ResourceType.REAG_SKY_DUST]: 2,
-    [ResourceType.REAG_SUN_POWDER]: 3,
+    [ResourceType.REAG_SUN]: 2,
+    [ResourceType.REAG_SKY]: 3,
 };
 let SELL_COSTS = {
-    // [ResourceType.REAG_SKY_DUST]: 1,
-    // [ResourceType.REAG_SUN_POWDER]: 1,
-    // [ResourceType.HERB_SPARKLEWEED]: 1,
-    // [ResourceType.HERB_BRAMBLEBERRY]: 2,
-    // [ResourceType.HERB_SPECIALPETAL]: 2,
-    [ResourceType.POT_COLD_CURE]: 2,
-    [ResourceType.POT_DRAGON_SWEAT]: 2,
-    [ResourceType.POT_MIASMA_OF_MIDNIGHT]: 5,
-    [ResourceType.POT_TINCTURE_OF_TASTE]: 5,
-    [ResourceType.POT_LIQUID_LUCK]: 10,
-    [ResourceType.POT_POWER_POTION]: 10,
-    [ResourceType.POT_GROWTH]: 10,
+// [ResourceType.REAG_SKY]: 1,
+// [ResourceType.REAG_SUN]: 1,
+// [ResourceType.HERB_SPA]: 1,
+// [ResourceType.HERB_BRA]: 2,
+// [ResourceType.HERB_SPE]: 2,
+// [ResourceType.POT_COL]: 2,
+// [ResourceType.POT_DRA]: 2,
+// [ResourceType.POT_MIA]: 5,
+// [ResourceType.POT_TIN]: 5,
+// [ResourceType.POT_LIQ]: 10,
+// [ResourceType.POT_POW]: 10,
+// [ResourceType.POT_GRO]: 10,
 };
 let RECIPES = {
-    [ResourceType.POT_COLD_CURE]: [
-        ResourceType.HERB_BRAMBLEBERRY,
-        ResourceType.REAG_SKY_DUST,
+    [ResourceType.POT_GRO]: [ResourceType.REAG_SUN, ResourceType.REAG_SUN],
+    [ResourceType.POT_EMP]: [ResourceType.HERB_SPA, ResourceType.REAG_SUN],
+    [ResourceType.POT_POW]: [
+        ResourceType.HERB_SPA,
+        ResourceType.HERB_SPA,
+        ResourceType.REAG_SUN,
     ],
-    [ResourceType.POT_DRAGON_SWEAT]: [
-        ResourceType.HERB_SPARKLEWEED,
-        ResourceType.REAG_SKY_DUST,
+    [ResourceType.POT_LIQ]: [
+        ResourceType.HERB_BRA,
+        ResourceType.HERB_SPA,
+        ResourceType.REAG_SUN,
+        ResourceType.REAG_SUN,
     ],
-    [ResourceType.POT_MIASMA_OF_MIDNIGHT]: [
-        ResourceType.HERB_SPARKLEWEED,
-        ResourceType.HERB_SPARKLEWEED,
-        ResourceType.REAG_SKY_DUST,
+    [ResourceType.POT_COL]: [ResourceType.HERB_BRA, ResourceType.REAG_SKY],
+    [ResourceType.POT_DRA]: [
+        ResourceType.HERB_SPA,
+        ResourceType.HERB_SPE,
+        ResourceType.REAG_SKY,
     ],
-    [ResourceType.POT_TINCTURE_OF_TASTE]: [
-        ResourceType.HERB_BRAMBLEBERRY,
-        ResourceType.HERB_BRAMBLEBERRY,
-        ResourceType.REAG_SKY_DUST,
+    [ResourceType.POT_MIA]: [
+        ResourceType.HERB_SPA,
+        ResourceType.HERB_SPA,
+        ResourceType.HERB_SPE,
+        ResourceType.REAG_SKY,
     ],
-    [ResourceType.POT_GROWTH]: [
-        ResourceType.REAG_SKY_DUST,
-        ResourceType.REAG_SUN_POWDER,
+    [ResourceType.POT_TIN]: [
+        ResourceType.HERB_BRA,
+        ResourceType.HERB_SPE,
+        ResourceType.REAG_SKY,
     ],
-    [ResourceType.POT_EMPATHY]: [
-        ResourceType.HERB_BRAMBLEBERRY,
-        ResourceType.HERB_BRAMBLEBERRY,
-        ResourceType.HERB_SPARKLEWEED,
-        ResourceType.HERB_SPARKLEWEED,
-        ResourceType.REAG_SUN_POWDER,
-    ],
-    [ResourceType.POT_POWER_POTION]: [
-        ResourceType.HERB_SPECIALPETAL,
-        ResourceType.REAG_SUN_POWDER,
-    ],
-    [ResourceType.POT_LIQUID_LUCK]: [
-        ResourceType.HERB_BRAMBLEBERRY,
-        ResourceType.HERB_SPARKLEWEED,
-        ResourceType.HERB_SPECIALPETAL,
-        ResourceType.REAG_SUN_POWDER,
+    [ResourceType.POT_ANT]: [
+        ResourceType.HERB_SPE,
+        ResourceType.HERB_SPE,
+        ResourceType.REAG_SUN,
+        ResourceType.REAG_SKY,
     ],
 };
 var ResourceTypeFunc;
 (function (ResourceTypeFunc) {
-    ResourceTypeFunc["FUNC_RANDOM_HERB_TIER_1"] = "HERB1";
-    ResourceTypeFunc["FUNC_RANDOM_HERB_TIER_2"] = "HERB2";
-    ResourceTypeFunc["FUNC_RANDOM_HERB_TIER_3"] = "HERB3";
-    ResourceTypeFunc["FUNC_RANDOM_HERB_ANY"] = "HERB";
-    ResourceTypeFunc["FUNC_RANDOM_REAGENT_TIER_1"] = "REAG1";
-    ResourceTypeFunc["FUNC_RANDOM_REAGENT_TIER_2"] = "REAG2";
-    ResourceTypeFunc["FUNC_RANDOM_REAGENT_ANY"] = "REAG";
-    ResourceTypeFunc["FUNC_RANDOM_POTION_TIER_1"] = "POT1";
-    ResourceTypeFunc["FUNC_RANDOM_POTION_ANY"] = "POT";
-    ResourceTypeFunc["FUNC_RANDOM_GOLD"] = "GOLD";
-    ResourceTypeFunc["FUNC_RANDOM_FIRE_MAGIC"] = "FIRE";
-    ResourceTypeFunc["FUNC_RANDOM_HEART_MAGIC"] = "HEART";
-    ResourceTypeFunc["FUNC_RANDOM_GROW"] = "GROW";
+    ResourceTypeFunc["FUNC_H1"] = "HERB1";
+    ResourceTypeFunc["FUNC_H2"] = "HERB2";
+    ResourceTypeFunc["FUNC_H3"] = "HERB3";
+    ResourceTypeFunc["FUNC_H_ANY"] = "HERB";
+    ResourceTypeFunc["FUNC_R1"] = "REAG1";
+    ResourceTypeFunc["FUNC_R2"] = "REAG2";
+    ResourceTypeFunc["FUNC_R_ANY"] = "REAG";
+    ResourceTypeFunc["FUNC_P1"] = "POT1";
+    ResourceTypeFunc["FUNC_P_ANY"] = "POT";
+    ResourceTypeFunc["FUNC_G"] = "GOLD";
+    ResourceTypeFunc["FUNC_FIRE"] = "FIRE";
+    ResourceTypeFunc["FUNC_HEART"] = "HEART";
+    ResourceTypeFunc["FUNC_GROW"] = "GROW";
+    ResourceTypeFunc["FUNC_ING"] = "ING";
 })(ResourceTypeFunc || (ResourceTypeFunc = {}));
 var ConditionFunc;
 (function (ConditionFunc) {
-    ConditionFunc["HAS_RESOURCE"] = "HAS";
+    ConditionFunc["HAS_RES"] = "HAS";
+    ConditionFunc["HAS_ING"] = "HAS_I";
 })(ConditionFunc || (ConditionFunc = {}));
+function toGrayscale(icon) {
+    return `<${SPAN} style="filter: grayscale(75%)">${icon}</${SPAN}>`;
+}
+function toHueRotate(icon, degrees) {
+    return `<${SPAN} style="filter: hue-rotate(${degrees}deg)">${icon}</${SPAN}>`;
+}
 let ICON_GOLD = '💰';
 let ICON_HERB = '🌿';
 let ICON_REAGENT = '🧪';
@@ -848,7 +927,7 @@ let ICON_POTION = '🧴';
 let ICON_FIRE_MAGIC = '🔥';
 let ICON_HEART_MAGIC = '♥️';
 let ICON_LUCK = '🍀';
-let ICON_CAT = '<span style="filter: grayscale(100%)">🐈‍⬛</span>';
+let ICON_CAT = toGrayscale('🐈‍⬛');
 let ICON_GROW = '🌱';
 let ICON_CONTRACT = '📃';
 let ICON_EXCLAMATION = '❗';
@@ -860,151 +939,215 @@ let ICON_FAIRY = '🧚🏿‍♀️';
 let ICON_WITCH = '🧙🏿‍♀️';
 let ICON_WEATHER = '🌤';
 let ICON_DICE = '🎲';
+let ICON_CURSE = '💀';
+let ICON_BLANK = '✖️';
 let ICON_COLD = '🤧';
 let Labels = {
-    [ResourceType.DICE_FIRE_MAGIC]: {
+    [ResourceType.DICE_FIR]: {
         l: 'Fire Magic',
         icon: ICON_FIRE_MAGIC,
-        dsc: 'Used to fend off your enemies.',
+        dsc: 'Fends off your enemies.',
     },
-    [ResourceType.DICE_HEART_MAGIC]: {
+    [ResourceType.DICE_HEA]: {
         l: 'Heart Magic',
         icon: ICON_HEART_MAGIC,
-        dsc: 'Can guide situations and people.',
+        dsc: 'Guides situations and people.',
     },
-    [ResourceType.DICE_GROW]: {
+    [ResourceType.DICE_GRO]: {
         l: 'Grow',
         icon: ICON_GROW,
-        dsc: 'Used to grow your magical garden.',
+        dsc: 'Grows your magical garden.',
     },
     [ResourceType.DICE_ANY]: {
         l: 'Any',
         icon: ICON_DICE,
         dsc: 'Any magic dice.',
     },
+    [ResourceType.DICE_BLA]: {
+        l: 'Blank',
+        icon: ICON_BLANK,
+        dsc: 'A blank dice face.',
+    },
+    [ResourceType.DICE_CUR]: {
+        l: 'Curse',
+        icon: ICON_CURSE,
+        dsc: 'Auto fails spells.',
+    },
     [ResourceType.GOLD]: {
         l: 'Gold',
         icon: ICON_GOLD,
         dsc: 'Merchants love it.',
     },
-    [ResourceType.HERB_SPARKLEWEED]: {
+    [ResourceType.HERB_SPA]: {
         l: 'Sparkleweed',
         icon: ICON_HERB,
         dsc: 'A glittery weed.',
     },
-    [ResourceType.HERB_BRAMBLEBERRY]: {
-        l: 'Brambleberry',
-        icon: ICON_HERB,
-        dsc: 'Magical berries that make potion bases.',
+    [ResourceType.HERB_BRA]: {
+        l: 'Bramberry',
+        icon: toHueRotate(ICON_HERB, 90),
+        dsc: 'Magical berries.',
     },
-    [ResourceType.HERB_SPECIALPETAL]: {
+    [ResourceType.HERB_SPE]: {
         l: 'Specialpetal',
-        icon: ICON_HERB,
+        icon: toHueRotate(ICON_HERB, 248),
         dsc: 'Rare flower for rare potions.',
     },
-    [ResourceType.REAG_SKY_DUST]: {
+    [ResourceType.REAG_SKY]: {
         l: 'Sky Dust',
         icon: ICON_REAGENT,
         dsc: 'Common dust collected on magical clouds.',
     },
-    [ResourceType.REAG_SUN_POWDER]: {
+    [ResourceType.REAG_SUN]: {
         l: 'Sun Powder',
-        icon: ICON_REAGENT,
+        icon: toHueRotate(ICON_REAGENT, 180),
         dsc: 'Rare ground-up sunbeams.',
     },
-    [ResourceType.POT_COLD_CURE]: {
+    [ResourceType.POT_COL]: {
         l: 'Cold Cure',
         icon: ICON_POTION,
-        dsc: 'Instantly cures the common cold.',
+        dsc: 'Cures colds.',
     },
-    [ResourceType.POT_DRAGON_SWEAT]: {
+    [ResourceType.POT_DRA]: {
         l: 'Dragon Sweat',
         icon: ICON_POTION,
-        dsc: 'Immunity to fire.',
+        dsc: 'Antifire.',
     },
-    [ResourceType.POT_MIASMA_OF_MIDNIGHT]: {
-        l: 'Miasma of Midnight',
+    [ResourceType.POT_MIA]: {
+        l: 'Night Miasma ',
         icon: ICON_POTION,
-        dsc: 'Sleep until midnight exactly.',
+        dsc: 'Sleep potion.',
     },
-    [ResourceType.POT_TINCTURE_OF_TASTE]: {
-        l: 'Tincture of Taste',
+    [ResourceType.POT_TIN]: {
+        l: 'Taste Tinc',
         icon: ICON_POTION,
-        dsc: 'Makes any food taste better.',
+        dsc: 'Yummy.',
     },
-    [ResourceType.POT_EMPATHY]: {
-        l: 'Empathy Potion',
+    [ResourceType.POT_EMP]: {
+        l: 'Empathy Pot',
         icon: ICON_POTION,
-        dsc: 'Grants supernatural empathy.',
+        dsc: 'More hearts.',
     },
-    [ResourceType.POT_LIQUID_LUCK]: {
+    [ResourceType.POT_LIQ]: {
         l: 'Liquid Luck',
         icon: ICON_POTION,
         dsc: 'Grants luck.',
     },
-    [ResourceType.POT_POWER_POTION]: {
+    [ResourceType.POT_POW]: {
         l: 'Power Potion',
         icon: ICON_POTION,
-        dsc: 'The power within you is amplified.',
+        dsc: 'More magic.',
     },
     // [ResourceType.POT_REDO]: {
     //   l: 'Retry Serum',
     //   icon: ICON_POTION,
     //   dsc: 'Failed dice roll again.',
     // },
-    [ResourceType.POT_GROWTH]: {
-        l: 'Growth Potion',
+    [ResourceType.POT_GRO]: {
+        l: 'Growth Pot',
         icon: ICON_POTION,
-        dsc: 'Increases growth.',
+        dsc: 'Increases yields.',
     },
-    [ResourceType.CONTRACT_VILLAGER]: {
+    [ResourceType.POT_ANT]: {
+        l: 'NoCurse Pot',
+        icon: ICON_POTION,
+        dsc: 'Removes curses.',
+    },
+    [ResourceType.C_VIL]: {
         l: 'Contract',
         icon: ICON_CONTRACT,
         dsc: 'A simple request.',
     },
-    [ResourceType.CONTRACT_CAT]: {
-        l: 'Cat',
-        icon: ICON_CONTRACT,
-        dsc: 'A complex request.',
-    },
-    [ResourceType.FAVOR_CAT]: {
+    [ResourceType.FAV_CAT]: {
         l: "Cat's Favor",
         icon: ICON_CAT,
         dsc: 'Your standing with the Black Cat.',
     },
-    [ResourceType.BLUEPRINT_SPARKLEWEED]: {
+    [ResourceType.BP_SPA]: {
         l: 'Seed of Sparkleweed',
         icon: ICON_GROW,
-        dsc: 'Allows you 1 additional Sparkleweed seed bed.',
+        dsc: 'Additional Sparkleweed seed bed.',
     },
-    [ResourceType.BLUEPRINT_BRAMBLEBERRY]: {
-        l: 'Seed of Brambleberry',
+    [ResourceType.BP_BRA]: {
+        l: 'Seed of Bramberry',
         icon: ICON_GROW,
-        dsc: 'Allows you 1 additional Brambleberry seed bed.',
+        dsc: 'Additional Bramberry seed bed.',
     },
-    [ResourceType.BLUEPRINT_SPECIALPETAL]: {
+    [ResourceType.BP_SPE]: {
         l: 'Seed of Specialpetal',
         icon: ICON_GROW,
-        dsc: 'Allows you 1 additional Specialpetal seed bed.',
+        dsc: 'Additional Specialpetal seed bed.',
     },
     [ResourceType.DICE_NEW]: {
         l: 'Magic Dice',
         icon: ICON_DICE,
         dsc: 'A new magic dice.',
     },
-    [ResourceType.EFFECT_COLD]: {
+    [ResourceType.EFF_COL]: {
         l: 'Cold',
         icon: ICON_COLD,
         dsc: 'You have a cold.',
     },
-    [ResourceType.EFFECT_GREEN_THUMB]: {
+    [ResourceType.EFF_GRE]: {
         l: 'Green Thumbs',
         icon: ICON_GROW,
         dsc: 'Your thumbs are bright green.',
     },
+    [ResourceType.EFF_FFIR]: {
+        l: 'Fire Dice Face',
+        icon: ICON_FIRE_MAGIC,
+        dsc: `Gained a ${ICON_FIRE_MAGIC} face.`,
+    },
+    [ResourceType.EFF_FHEA]: {
+        l: 'Heart Dice Face',
+        icon: ICON_HEART_MAGIC,
+        dsc: `Gained a ${ICON_HEART_MAGIC} face.`,
+    },
+    [ResourceType.EFF_FGRO]: {
+        l: 'Grow Dice Face',
+        icon: ICON_GROW,
+        dsc: `Gained a ${ICON_GROW} face.`,
+    },
+    [ResourceType.EFF_FCUR]: {
+        l: 'Curse Dice Face',
+        icon: ICON_CURSE,
+        dsc: `Gained a ${ICON_CURSE} face.`,
+    },
+    [ResourceType.EFF_RMCUR]: {
+        l: 'Remove Curse',
+        icon: ICON_CURSE,
+        dsc: `Removed a curse.`,
+    },
+    [ResourceType.EFF_REPLCUR]: {
+        l: 'Curse!',
+        icon: ICON_CURSE,
+        dsc: `A curse replaces a face.`,
+    },
+};
+let recipeToStringArr = (recipe, includeLabels = false) => {
+    let herbsAndReagents = [...HERB_NAMES, ...REAGENT_NAMES];
+    let amounts = [];
+    for (let potentialIngredient of herbsAndReagents) {
+        let amt = recipe.filter(r => r === potentialIngredient).length;
+        if (amt > 0) {
+            if (includeLabels) {
+                let labelObj = Labels[potentialIngredient];
+                amounts.push(`${amt}${labelObj.l.slice(0, 3)}${labelObj.icon}`);
+            }
+            else {
+                amounts.push(`${amt} ${potentialIngredient}`);
+            }
+        }
+    }
+    return amounts;
 };
 for (let key in Labels) {
     Labels[key].icon = `<${SPAN} class="icon">${Labels[key].icon}</${SPAN}>`;
+}
+for (let res of [...POTION_NAMES]) {
+    let recipe = RECIPES[res];
+    let recipeStr = recipeToStringArr(recipe, true);
+    Labels[res].dsc += `${BR}<${SPAN} style="font-size: 14px">${recipeStr.join(',')}</${SPAN}>`;
 }
 let getResourceFromLabel = (label) => {
     let ind = label.lastIndexOf('>');
@@ -1040,7 +1183,7 @@ let EXPULSION_EVENT;
 let gameAdvanceDay = (state, msg) => {
     eventModalAddChild(state.ui.eventModal, {
         id: '1',
-        type: 'modify',
+        type: 'm',
         p: msg ?? 'You close up your shop for the day.',
     }, {
         event: state.events[state.day],
@@ -1051,7 +1194,7 @@ let gameAdvanceDay = (state, msg) => {
         class: 'moon-anim',
     });
     appendChild(state.ui.eventModal.content, moonAnim);
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 1; i++) {
         appendChild(state.ui.eventModal.content, createElement('br'));
     }
     let phases = [...'🌕🌕🌕🌕🌖🌗🌘🌑🌒🌓🌔🌕🌕🌕🌕'];
@@ -1073,7 +1216,7 @@ let gameAdvanceDay = (state, msg) => {
             calendarAdvanceDayForward(state.ui.calendar);
         }
         console.log('ADVANCE DAY', state.day, state.events[state.day]);
-        let favorAmt = gameStateGetResourceCount(state, ResourceType.FAVOR_CAT);
+        let favorAmt = gameStateGetResourceCount(state, ResourceType.FAV_CAT);
         if (favorAmt === 0) {
             runEvent(state, EXPULSION_EVENT);
         }
@@ -1086,8 +1229,8 @@ let gameHarvest = (state, slots, multiplier = 1) => {
     console.log('HARVEST', state, slots, multiplier);
     let resourcesAdded = [];
     for (let slot of slots) {
-        let numHarvestResults = slot.diceResults.filter(r => r === ResourceType.DICE_GROW).length;
-        resourcesAdded.push(numHarvestResults);
+        let numHarvestResults = slot.diceResults.filter(r => r === ResourceType.DICE_GRO).length;
+        resourcesAdded.push(numHarvestResults * multiplier);
         for (let i = 0; i < numHarvestResults * multiplier; i++) {
             state.res.push(slot.resourceType);
         }
@@ -1108,20 +1251,42 @@ let gameGetDiceResults = (diceList) => {
 let gameRollDiceUi = async (arr, reqs, luck = false) => {
     let results = [];
     let promises = [];
+    let isCursed = false;
+    let curseColor = 'orange';
     for (let d of arr) {
         let resultValue = luck ? reqs[0] : gameGetDiceResult(d.dice);
         promises.push(diceSpin(d.elem, resultValue, 600, 2).then(() => {
             let icon = Labels[resultValue].icon;
             diceSetFace(d.elem, icon);
+            let borderColor = reqs.includes(resultValue) ? 'green' : 'red';
+            let background = reqs.includes(resultValue) ? 'green' : 'unset';
+            if (resultValue === ResourceType.DICE_CUR) {
+                isCursed = true;
+            }
+            if (isCursed) {
+                borderColor = curseColor;
+                background = curseColor;
+            }
             setStyle(d.elem.root, {
-                borderColor: reqs.includes(resultValue) ? 'green' : 'red',
-                background: reqs.includes(resultValue) ? 'green' : 'unset',
+                borderColor: borderColor,
+                background: background,
             });
         }));
         await timeoutPromise(250);
         results.push(resultValue);
     }
     await Promise.all(promises);
+    if (isCursed) {
+        for (let d of arr) {
+            setStyle(d.elem.root, {
+                borderColor: curseColor,
+                background: curseColor,
+            });
+        }
+        for (let i = 0; i < results.length; i++) {
+            results[i] = ResourceType.DICE_CUR;
+        }
+    }
     return results;
 };
 let gameSetupEvents = (state, events) => {
@@ -1134,53 +1299,97 @@ let gameSetupEvents = (state, events) => {
     let START_EVENT = findEventByTitle('The Game');
     let VILLAGER_CONTRACT_EVENT = findEventByTitle('Villager Contract');
     let BLACK_CAT_EVENT = findEventByTitle('The Black Cat');
+    let DEMONIC_DEAL_EVENT = findEventByTitle('Demonic Deal');
     let ATTACK_EVENT = findEventByTitle('Attack!');
     let HERB_MERCHANT_EVENT = findEventByTitle('Herb Merchant');
-    let END_EVENT = findEventByTitle('The End');
+    let FINAL_TEST_EVENT = findEventByTitle('The Final Test');
+    let END_EVENT = findEventByTitle('True Witch');
     EXPULSION_EVENT = findEventByTitle('Expulsion');
     let templateEvents = [
         START_EVENT,
         VILLAGER_CONTRACT_EVENT,
         BLACK_CAT_EVENT,
+        DEMONIC_DEAL_EVENT,
         ATTACK_EVENT,
         HERB_MERCHANT_EVENT,
+        FINAL_TEST_EVENT,
         END_EVENT,
         EXPULSION_EVENT,
     ];
     let eventsToShuffle = events.filter(e => !templateEvents.includes(e));
+    let attackEvents = [];
     for (let i = 0; i < 7; i++) {
+        let numFireToDefeat = i < 3 ? 1 : i < 6 ? 2 : 3;
         let monsterName = randInArray(MONSTER_NAMES);
         let attackEvent = copyObject(ATTACK_EVENT);
         for (let child of attackEvent.children) {
             child.p = child.p?.replace('monster', '<b>' + monsterName + '</b>');
         }
-        eventsToShuffle.splice(randInRange(0, eventsToShuffle.length - 1), 0, attackEvent);
+        attackEvent.vars['@A'] = {
+            str: `FIRE(${numFireToDefeat})`,
+            parsed: undefined,
+        };
+        eventsToShuffle.push(attackEvent);
+        attackEvents.push(attackEvent);
     }
     for (let i = 0; i < 4; i++) {
         let herbMerchantEvent = copyObject(HERB_MERCHANT_EVENT);
-        eventsToShuffle.splice(randInRange(0, eventsToShuffle.length - 1), 0, herbMerchantEvent);
+        eventsToShuffle.push(herbMerchantEvent);
+    }
+    let diceFaceReplacements = [
+        ResourceType.EFF_FFIR,
+        ResourceType.EFF_FHEA,
+        ResourceType.EFF_FGRO,
+    ];
+    let diceMagics = [
+        ResourceType.DICE_FIR,
+        ResourceType.DICE_HEA,
+        ResourceType.DICE_GRO,
+    ];
+    for (let i = 0; i < 3; i++) {
+        let demonicDealEvent = copyObject(DEMONIC_DEAL_EVENT);
+        let effect = randInArray(diceFaceReplacements);
+        let resourceForEffect = diceMagics[diceFaceReplacements.indexOf(effect)];
+        demonicDealEvent.vars['@C'] = {
+            str: '1 ' + effect,
+            parsed: undefined,
+        };
+        demonicDealEvent.vars['@A1'] = {
+            str: '1 ' + resourceForEffect,
+            parsed: undefined,
+        };
+        eventsToShuffle.push(demonicDealEvent);
     }
     let orderedEvents = shuffleEvents(eventsToShuffle);
-    for (let i = 0; i < 4; i++) {
-        let contractEvent = copyObject(VILLAGER_CONTRACT_EVENT);
-        orderedEvents.splice(i * 7 + randInRange(0, 6), 0, contractEvent);
+    let attackEventInd = 0;
+    for (let i = 0; i < orderedEvents.length; i++) {
+        if (orderedEvents[i].title === ATTACK_EVENT.title) {
+            orderedEvents[i] = attackEvents[attackEventInd];
+            attackEventInd++;
+        }
     }
     for (let i = 0; i < 4; i++) {
-        let blackCatEvent = copyObject(BLACK_CAT_EVENT);
-        orderedEvents.splice(i * 7 + 6, 0, blackCatEvent); // every Saturday
+        let contractEvent = copyObject(VILLAGER_CONTRACT_EVENT);
+        orderedEvents.splice(i * 4 + randInRange(0, 6), 0, contractEvent);
+    }
+    for (let i = 0; i < 4; i++) {
+        let blackCatEvent = createBlackCatEvent(BLACK_CAT_EVENT);
+        orderedEvents.splice(i * 7 + 4, 0, blackCatEvent); // every Thursday
     }
     let startEventCopy = copyObject(START_EVENT);
     let continueChild = startEventCopy.children.slice(-2)[0];
     continueChild.mod = [
-        '3 GOLD',
-        '1 HERB_SPARKLEWEED',
-        '1 HERB_BRAMBLEBERRY',
-        '1 REAG_SKY_DUST',
-        '1 REAG_SUN_POWDER',
+        '3 ' + ResourceType.GOLD,
+        '1 ' + ResourceType.HERB_SPA,
+        '1 ' + ResourceType.HERB_BRA,
+        '1 ' + ResourceType.REAG_SKY,
+        '1 ' + ResourceType.REAG_SUN,
+        '1 ' + ResourceType.POT_LIQ,
     ];
-    let randomPotion = randInArray(POTION_NAMES);
-    continueChild.mod.push('1 ' + randomPotion);
-    let finalEvents = [startEventCopy, ...orderedEvents, END_EVENT];
+    // let randomPotion = randInArray(POTION_NAMES);
+    // continueChild.mod.push('1 ' + randomPotion);
+    let finalEvents = [startEventCopy, ...orderedEvents].slice(0, 29);
+    finalEvents.push(FINAL_TEST_EVENT, END_EVENT);
     console.log('SETUP EVENTS', startEventCopy, finalEvents);
     state.events = finalEvents;
 };
@@ -1190,12 +1399,27 @@ let gameModifyResource = (state, gameEventState, child, resource, amt) => {
             for (let i = 0; i < dice.length; i++) {
                 if (dice[i] === face1) {
                     dice[i] = face2;
+                    return true;
                 }
             }
         }
+        return false;
+    };
+    let replaceOrAddDiceFace = (face1, face2) => {
+        if (replaceDiceFace(face1, face2)) {
+            return;
+        }
+        if (face2 === ResourceType.DICE_CUR && face1 === ResourceType.DICE_BLA) {
+            replaceDiceFace(face1, randInArray(DICE_NAMES));
+        }
+        else {
+            let dice = createMagicDiceBlank();
+            state.magicDice.push(dice);
+            replaceDiceFace(face1, face2);
+        }
     };
     console.log(' modifying', resource, amt);
-    if (resource === ResourceType.CONTRACT_VILLAGER) {
+    if (resource === ResourceType.C_VIL) {
         let contractReturnEvent = createContractReturnEvent(gameEventState.event);
         let eventInd = state.events.indexOf(gameEventState.event);
         state.events.splice(eventInd + 7, 0, contractReturnEvent.event);
@@ -1203,16 +1427,30 @@ let gameModifyResource = (state, gameEventState, child, resource, amt) => {
     else if (resource === ResourceType.DICE_NEW) {
         state.magicDice.push(createMagicDice());
     }
-    else if (resource === ResourceType.DICE_FIRE_MAGIC) {
-        // replaceDiceFace(ResourceType.DICE_FIRE_MAGIC, ResourceType.DICE_HEART_MAGIC);
+    else if (resource === ResourceType.EFF_RMCUR) {
+        replaceOrAddDiceFace(ResourceType.DICE_CUR, ResourceType.DICE_BLA);
     }
-    else if (resource === ResourceType.DICE_HEART_MAGIC) {
-        replaceDiceFace(ResourceType.DICE_FIRE_MAGIC, ResourceType.DICE_HEART_MAGIC);
+    else if (resource === ResourceType.EFF_FFIR) {
+        replaceOrAddDiceFace(ResourceType.DICE_BLA, ResourceType.DICE_FIR);
     }
-    else if (resource === ResourceType.DICE_GROW) {
-        replaceDiceFace(ResourceType.DICE_FIRE_MAGIC, ResourceType.DICE_GROW);
+    else if (resource === ResourceType.EFF_FHEA) {
+        replaceOrAddDiceFace(ResourceType.DICE_BLA, ResourceType.DICE_HEA);
     }
-    else if (resource === ResourceType.EFFECT_COLD) {
+    else if (resource === ResourceType.EFF_FGRO) {
+        replaceOrAddDiceFace(ResourceType.DICE_BLA, ResourceType.DICE_GRO);
+    }
+    else if (resource === ResourceType.EFF_FCUR) {
+        replaceOrAddDiceFace(ResourceType.DICE_BLA, ResourceType.DICE_CUR);
+    }
+    else if (resource === ResourceType.EFF_REPLCUR) {
+        let diceTypes = [
+            ResourceType.DICE_FIR,
+            ResourceType.DICE_HEA,
+            ResourceType.DICE_GRO,
+        ];
+        replaceOrAddDiceFace(randInArray(diceTypes), ResourceType.DICE_CUR);
+    }
+    else if (resource === ResourceType.EFF_COL) {
         // child.next = 'nextDay';
         timeoutPromise(1).then(() => {
             gameAdvanceDay(state, 'You take a day to rest and recover.');
@@ -1237,38 +1475,40 @@ let gameCreateMerchantEvents = (state, eventState) => {
     // };
     for (let [res, cost] of Object.entries(buyCosts)) {
         buyChoices.push({
-            text: `Buy 1 ${res} for ${cost} ${ResourceType.GOLD}`,
-            next: 'buy_' + res,
+            text: `<b class="shop">Buy 1 ${res} (${cost} ${ResourceType.GOLD})</b>`,
+            n: 'buy_' + res,
             conditionText: `HAS(${cost} ${ResourceType.GOLD})`,
         });
         eventState.event.children.push({
             id: 'buy_' + res,
-            type: 'modify',
+            type: 'm',
             p: `You buy ${res} for ${cost} ${ResourceType.GOLD}.`,
             mod: [`-${cost} ${ResourceType.GOLD}`, `1 ${res}`],
-            next: 'merch',
+            n: 'merch',
+            fastScroll: true,
         });
     }
     for (let res of HERB_NAMES) {
         if (state.res.includes(res)) {
             buyChoices.push({
-                text: `Sell 1 ${res} for 1 ${ResourceType.GOLD}`,
-                next: 'sell_' + res,
+                text: `<b class="shop">Sell 1 ${res} (1 ${ResourceType.GOLD})</b>`,
+                n: 'sell_' + res,
                 // conditionText: `HAS(1 ${res})`,
             });
             eventState.event.children.push({
                 id: 'sell_' + res,
-                type: 'modify',
+                type: 'm',
                 p: `You sell 1 ${res} for 1 ${ResourceType.GOLD}.`,
                 mod: [`-1 ${res}`, `1 ${ResourceType.GOLD}`],
-                next: 'merch',
-                re: true
+                n: 'merch',
+                re: true,
+                fastScroll: true,
             });
         }
     }
     buyChoices.push({
         text: 'Go back.',
-        next: 'day',
+        n: 'day',
     });
     // for (let [res, cost] of Object.entries(sellCosts)) {
     //   if (state.res.includes(res as ResourceType)) {
@@ -1279,14 +1519,14 @@ let gameCreateMerchantEvents = (state, eventState) => {
     //         state,
     //         res as ResourceType
     //       )})`,
-    //       next: 'sell_' + res,
+    //       n: 'sell_' + res,
     //     });
     //     eventState.event.children.push({
     //       id: 'sell_' + res,
     //       type: 'modify',
     //       p: `You sell ${res} for ${cost} ${ResourceType.GOLD}.`,
     //       mod: [`-1 ${res}`, `${cost} ${ResourceType.GOLD}`],
-    //       next: 'merchSelling',
+    //       n: 'merchSelling',
     //       /*@preserve*/
     //       re: true,
     //     });
@@ -1294,17 +1534,18 @@ let gameCreateMerchantEvents = (state, eventState) => {
     // }
     // sellChoices.push({
     //   text: 'Go back.',
-    //   next: 'day',
+    //   n: 'day',
     // });
     eventState.event.children.push({
         /*@preserve*/
         id: 'merch',
         /*@preserve*/
-        type: 'choice',
+        type: 'm',
         /*@preserve*/
-        p: '"What\'re you buying?"',
+        p: '"Whaddya want?"',
         /*@preserve*/
         choices: buyChoices,
+        fastScroll: true,
     }
     // {
     //   /*@preserve*/
@@ -1320,47 +1561,44 @@ let gameCreateMerchantEvents = (state, eventState) => {
 };
 let gameCreateBrewingEvents = (state, eventState) => {
     let choices = [];
-    let herbsAndReagents = [...HERB_NAMES, ...REAGENT_NAMES];
     let recipes = { ...RECIPES };
     for (let [res, recipe] of Object.entries(recipes)) {
-        let amounts = [];
-        for (let potentialIngredient of herbsAndReagents) {
-            let amt = recipe.filter(r => r === potentialIngredient).length;
-            if (amt > 0) {
-                amounts.push(`${amt} ${potentialIngredient}`);
-            }
-        }
+        let amounts = recipeToStringArr(recipe);
         let numOwned = gameStateGetResourceCount(state, res);
         choices.push({
-            text: `Brew 1 ${res} (${numOwned}) for <br>${amounts.join('<br>')}`,
-            next: 'brew_' + res,
+            text: `${res}:${BR}${amounts.join(BR)}`,
+            n: 'b_' + res,
             conditionText: amounts.map(a => `HAS(${a})`).join(CONDITION_DELIMITER),
         });
         eventState.event.children.push({
-            id: 'brew_' + res,
-            type: 'modify',
+            id: 'b_' + res,
+            type: 'm',
             p: `You make a ${res}.`,
             mod: [...amounts.map(a => `-${a}`), `1 ${res}`],
-            next: 'pot',
+            n: 'pot',
             /*@preserve*/
             re: true,
+            fastScroll: true,
         });
     }
     choices.push({
         /*@preserve*/
         text: 'Go back.',
         /*@preserve*/
-        next: 'day',
+        n: 'day',
     });
     eventState.event.children.push({
         /*@preserve*/
         id: 'pot',
         /*@preserve*/
-        type: 'choice',
+        type: 'ch',
         /*@preserve*/
         p: 'At the mixing table you can concoct magical potions.',
         /*@preserve*/
+        flex: true,
+        /*@preserve*/
         choices,
+        fastScroll: true,
     });
 };
 let gameCreateViewInventoryEvents = (state, eventState) => {
@@ -1372,13 +1610,35 @@ let gameCreateViewInventoryEvents = (state, eventState) => {
         /*@preserve*/
         id: 'inv',
         /*@preserve*/
-        type: 'modify',
+        type: 'm',
         /*@preserve*/
         p: "Here's what you have:" +
-            resAndCounts.map(r => ` <br>${r.res} (${r.count})`).join(''),
+            resAndCounts.map(r => ` ${BR}${r.res} (${r.count})`).join(''),
         /*@preserve*/
-        next: 'day',
+        n: 'day',
     });
+};
+let gameCreateAntiCursePotionEvent = (state, eventState) => {
+    // if has a dice face with a curse on it
+    if (state.magicDice.some(d => d.some(f => f === ResourceType.DICE_CUR))) {
+        let dayEvent = eventState.event.children.find(ch => ch.id === 'day');
+        dayEvent.choices.push({
+            text: 'Use 1 POT_ANTI_CURSE to remove a curse.',
+            n: 'noc',
+            conditionText: `HAS(1 ${ResourceType.POT_ANT})`,
+        });
+        eventState.event.children.push({
+            id: 'noc',
+            type: 'm',
+            p: 'Use 1 POT_ANTI_CURSE to remove a curse.',
+            mod: [
+                `-1 ${ResourceType.POT_ANT}`,
+                `1 ${ResourceType.EFF_RMCUR}`,
+            ],
+            n: 'day',
+            re: true,
+        });
+    }
 };
 let createContractReturnEvent = (contractEvent) => {
     let potionName = contractEvent.vars['@A'].parsed;
@@ -1388,90 +1648,100 @@ let createContractReturnEvent = (contractEvent) => {
         children: [
             {
                 id: '0',
-                type: 'choice',
-                p: 'The villager from last week returns to collect their promised potion:<br>' +
+                type: 'ch',
+                p: 'The villager from last week returns to collect their promised potion:' +
+                    BR +
                     potionName,
                 choices: [
                     {
                         text: 'Give them the potion.',
-                        next: '1',
+                        n: '1',
                         conditionText: `HAS(${potionName})`,
                     },
                     {
                         text: 'Say you cannot help. The Black Cat will be most displeased.',
-                        next: '2',
+                        n: '2',
                     },
                 ],
             },
             {
                 id: '1',
-                type: 'modify',
+                type: 'm',
                 p: 'You sell the potion to the villager.',
-                mod: [`-${potionName}`, '3 GOLD'],
-                next: 'e',
+                mod: [`-${potionName}`, '7 GOLD'],
+                n: 'e',
             },
             {
                 id: '2',
-                type: 'modify',
+                type: 'm',
                 p: 'The disappointed villager leaves.',
-                mod: [`-2 FAVOR_CAT`],
-                next: 'e',
+                mod: [`-2 ${ResourceType.FAV_CAT}`],
+                n: 'e',
             },
         ],
     });
     return eventState;
 };
+let createBlackCatEvent = (originalBlackCatEvent) => {
+    let event = copyObject(originalBlackCatEvent);
+    let choiceChild = event.children.find(ch => ch.id === 'ch');
+    let potentialRewards = [
+        ResourceType.EFF_FFIR,
+        ResourceType.EFF_FHEA,
+        ResourceType.EFF_FGRO,
+    ];
+    let potentialChoices = [
+        {
+            text: '1 Random Dice Upgrade',
+            n: 'dice',
+        },
+        // {
+        //   text: '1 BLUEPRINT_SPECIALPETAL',
+        //   n: 'bed',
+        // },
+    ];
+    choiceChild.choices = potentialChoices;
+    event.children.push({
+        id: 'dice',
+        type: 'm',
+        p: "The Black Cat's eyes glow, and you feel a new power within you.",
+        mod: [`1 ${randInArray(potentialRewards)}`],
+        n: 'e',
+    }, {
+        id: 'bed',
+        type: 'm',
+        p: 'The cat blinks and you have a new seed bed.',
+        mod: [`1 ${ResourceType.BP_SPE}`],
+        n: 'e',
+    });
+    return event;
+};
 let eventString = `
-#Disgruntled Customer,generic
-@A=HEART(RAND2_3)
-@B=POT1(1)
-@C=POT1(1 y)
-@D=FIRE(RAND1_3)
-@E=GOLD(RAND2_4)
-@F=3 GOLD
+#You Have a Cold,🤧
+@A=1 POT_COLD_CURE
+@B=ING(1 POT_COLD_CURE)
+@C=1 FAVOR_CAT
+@D=HERB1(1)
 >0,choice
-  +p: An angry customer shoves a potion in your face. "It doesn't work!" she claims.  "I need a refund!"  You see right away this potion is fake.  You didn't sell this...
-  +c: 1|Kindly explain to her that you didn't sell this potion.  Maybe she'll calm down and leave?  A little magic could help too... @A
-  +c: 2|Give her a replacement potion on the house.  The fake one looks like it's similar to @B.|HAS(@B)
-  +c: 3|Demand that she leave at once! You're not going to get scammed with this.
->1,dice
-  +p: As you explain, you attempt to placate her with your magic.
-  +dice: @A
-  +pass: 1pass
-  +fail: 1fail
->1pass,modify
-  +p: Your soothing words calm her down and she leaves without fanfare.
-  +next: e
->1fail,modify
-  +p: Uh oh.  She throws an absolute conniption that results in the fake potion shattering on the floor, damaging some of your wares.  Then she storms out.
-  +rem: @C
-  +next: e
+  +p: You feel groggy and sick this morning, and it's a struggle to get out of bed.
+  +c: 1|You're not feeling well, and simply cannot be a proper witch today.
+  +c: 2|Drink @A.|HAS(@A)
+  +c: 3|Mix @A and drink it.|HAS_I(@A)
+>1,modify
+  +p: You should feel better soon, but not today.
+  +add:1 EFFECT_COLD
 >2,modify
-  +p: She grumpily accepts your replacement.
+  +p: You drink @A and feel better.<br><br>...A lot better in fact!  You feel like you can harvest extra today!
+  +rem: @A
+  +rem: 1 HERB_BRAMBLEBERRY|1 HERB_SPARKLEWEED|1 HERB_SPECIALPETAL
+  +add: EFFECT_GREEN_THUMB
+  +add: @C|@D
+  +n: e
+>3,modify
+  +p: You mix @A and drink it.<br><br>You feel better.<br><br>...A lot better in fact!  You feel like you can harvest extra today!
   +rem: @B
-  +next: e
->3,choice
-  +p: A furrowed brow, a tilted chin, a clenched fist.  These are the signs of impending violence...
-  +c: 3fight|Ready your magic.  This could get ugly... @D
-  +c: 3relent|Relent and give her the replacement @B and a little extra @E for good measure.|HAS(@B),HAS(@E)
-  +c: 3relent2|Relent and give her a fair refund @F|HAS(@F)
->3fight,dice
-  +p: You cast a spell to intimidate her.
-  +dice: @D
-  +pass: 3fightpass
-  +fail: 1fail
->3fightpass,modify
-  +p: She screams in terror, throws the foreign potion at the ground where it shatters, and retreats gracelessly from your shop
-  +next: e
->3relent,modify
-  +p: You hand over @B and @E.  She huffs at you in indignation, but leaves.
-  +rem: @B
-  +rem: @E
-  +next: e
->3relent2,modify
-  +p: You shell out @F. With a smug grin, the customer snatches the purse and leaves.
-  +rem: @F
-  +next: e
+  +add: EFFECT_GREEN_THUMB
+  +n: e
 `;
 addEventListener('load', async () => {
     let gameState = createGameState();
@@ -1495,57 +1765,57 @@ addEventListener('load', async () => {
     // updateBlueprintList(garden, gameState);
     let hoverDescription = createHoverDescription();
     appendChild(getGameRoot(), hoverDescription.root);
-    hoverDescriptionDescribe(hoverDescription, ResourceType.DICE_FIRE_MAGIC);
+    hoverDescriptionDescribe(hoverDescription, ResourceType.DICE_FIR);
     gameState.ui.hoverDescription = hoverDescription;
     let bottomBar = createBottomBar();
     appendChild(getGameRoot(), bottomBar.root);
     gameState.ui.favorMeter = bottomBar.favorMeter;
     let eventsTxt = `#The Game,🐈‍⬛
->0,choice
-  +p: "Hello, dear witch.  I am your familiar, the Black Cat.  It is from me that you get your magic.  Ensure you keep me satisfied, lest you risk losing my favor."
+>0,ch
+  +p: "Hello, dear witch. I am your familiar, the Black Cat. It is from me that you get your magic. Ensure you keep me satisfied, lest you risk losing my favor."
   +c: 1|Continue.
   +c: 4|I already know what to do.
->1,dice
-  +p: "I have provided you with a magic dice.  Hover over it to see its faces.  There are three kinds of magic."<br><br>- DICE_FIRE_MAGIC is for fending off your enemies.<br>- DICE_HEART_MAGIC is for affecting people.<br>- DICE_GROW is for growing your garden.
+>1,d
+  +p: "I have provided you with a magic dice. Hover over it to see its faces. There are three kinds of magic."\n\n- DICE_FIRE_MAGIC is for fending off your enemies.\n- DICE_HEART_MAGIC is for affecting people.\n- DICE_GROW is for growing your garden.
   +dice: 1 ANY
   +pass: 2
   +fail: 2
->2,modify
-  +p: "I am tasking you with running a potion shop: each day you will harvest magical herbs, brew potions, and deal with the many problems of the nearby villagers."<br><br>- You get <b>Herbs</b> by growing them in your garden.<br>- You get <b>Reagents</b> by buying them from a merchant.
-  +next: 3
->3,modify
-  +p: "Run this shop for <b>1 month</b> and you will have convinced me that you are a competent witch.  Then, and only then, I shall let you keep your magic."
-  +next: 4
->4,modify
-  +p: "Here's some materials to get you started.  Don't disappoint me."
-  +next:eIntro
+>2,m
+  +p: "I am tasking you with running a potion shop: each day you will harvest magical herbs, mix potions, and deal with the many problems of the nearby villagers."\n\n- You get <b>Herbs</b> by growing them in your garden.\n- You get <b>Reagents</b> by buying them from a merchant.
+  +n: 3
+>3,m
+  +p: "Run this shop for <b>1 month</b> and you will have convinced me that you are a competent witch. Then, and only then, I shall let you keep your magic."
+  +n: 4
+>4,m
+  +p: "Here are some materials to get you started. Don't disappoint me."
+  +n: eIntro
 >eIntro,end
 
 #The Wizard,🧙🏼‍♀️
 @A=FIRE(1)
-@B=1 HERB_SPARKLEWEED
-@C=5 GOLD
-@D=1 FAVOR_CAT
->0,choice
-  +p: An old wizard enters your shop. He challenges you to a duel, promising a great reward.<br><br>If you win: the wizard gives @C and @B. If you lose, the wizard takes @B.<br><br>You can sense the Black Cat observing you.
-  +c: 1|Accept! This guy's going down.<br>@A
-  +c: 2|Reject. You're not interested in duels.
->2,modify
-  +p: The disappointed wizard leaves.
-  +next: e
->1,dice
-  +p: The wizard readies a magic spell!  You raise your hands to match him.
+@A=1 EFFECT_FACE_ADD_FIRE
+@B=ALL GOLD
+@C=1 FAVOR_CAT
+>0,ch
+  +p: An old wizard enters your shop. He challenges you to a duel, promising a great reward.\n\nIf you win: the wizard can teach you a new spell, and you get @A.\nIf you lose, the wizard takes @B.\n\nYou can sense the Black Cat observing you.
+  +c: 1|Accept! This guy's going down.\n@A
+  +c: 2|Reject.
+>2,m
+  +p: The wizard leaves.
+  +n: e
+>1,d
+  +p: The wizard readies a magic spell. You raise your hands...
   +dice: @A
   +pass: 3
   +fail: 4
->3,modify
-  +p: Your spells clash in magnificent glory, but when the smoke clears you stand triumphant! The defeated wizard shells out what he agreed to and leaves.<br><br>You can feel that the Black Cat appreciates your victory.
-  +add: @C|@B|@D
-  +next: e
->4,modify
-  +p: Damn!  His spell was just too much for you to handle.  The smug wizard pockets his earnings before leaving. You feel the Black Cat is displeased.
-  +rem: @B|@D
-  +next: e
+>3,m
+  +p: Your spells clash in magnificent glory, and when the smoke clears you stand triumphant! The defeated wizard teaches you a new spell.\n\nYou can feel that the Black Cat appreciates your victory.
+  +add: @A|@C
+  +n: e
+>4,m
+  +p: Damn. His spell was just too much for you to handle. The smug wizard pockets his earnings before leaving. You feel the Black Cat is displeased.
+  +rem: @B|@C
+  +n: e
 
 #Gnome Thief,👨
 @A=FIRE(2)
@@ -1554,212 +1824,191 @@ addEventListener('load', async () => {
 @D=HERB(1 y)
 @E=1 FAVOR_CAT
 @L=The gnome slips away with your herbs.
->0,choice
-  +p: You wake up early this morning to find a small gnome stealing from your garden!  With a fistful of herbs, he spots you and tries to run away as fast as his little feet can carry him.
-  +c: 1|Use your magic to threaten the gnome! Effective, but you'll likely damage the herbs... @A
-  +c: 2|Magically entice the gnome to give back the herbs. @B
+@R1=GOLD(5)
+@R2=GOLD(9)
+>0,ch
+  +p: You wake up this morning to find a small gnome stealing from your garden. With a fistful of herbs, he spots you and tries to run away as fast as his little feet can carry him.
+  +c: 1|Use your magic to threaten the gnome, but you may damage the herbs...\n@A
+  +c: 2|Entice the gnome to give back the herbs.\n@B
   +c: fail|Let him take @C, but at least there'll be no ruckus.
->1,dice
+>1,d
   +p: You raise your hand and aim at the little fellow.
   +dice: @A
   +pass: 1pass
   +fail: fail2
->1pass,modify
-  +p: The gnome drops your herbs and runs off, but errant fire damages your garden.
+>1pass,m
+  +p: The gnome drops your herbs and runs off, but errant fire damages your garden.\n\nIn his haste, he dropped some gold on the ground.
   +rem: @D
-  +next: e
->2,dice
+  +add: @R1
+  +n: e
+>2,d
   +p: You call out to the gnome and attempt wrap your words with your magic.
   +dice: @B
   +pass: 2pass
   +fail: fail2
->2pass,modify
-  +p: The gnome timidly hands over the herbs and scampers off to bother somebody else.
-  +next: e
->fail,modify
+>2pass,m
+  +p: The gnome timidly hands over the herbs and scampers off.\n\nYou notice some coins on the ground. He must have felt bad.
+  +add: @R2
+  +n: e
+>fail,m
   +p: @L
   +rem: @C
-  +next: e
->fail2,modify
-  +p: @L<br><br>The Black Cat is displeased with your failure.
+  +n: e
+>fail2,m
+  +p: @L\n\nThe Black Cat is displeased with your failure.
   +rem: @C
   +rem: @E
-  +next: e
+  +n: e
 
-#Disgruntled Customer,👤
-@A=HEART(RAND1_3)
-@B=POT1(1)
-@C=POT1(1 y)
-@D=FIRE(RAND2_3)
-@E=GOLD(RAND2_4)
-@F=3 GOLD
->0,choice
-  +p: An angry customer shoves a potion in your face. "It doesn't work!" she claims.  "I need a refund!"  You see right away this potion is fake.  You didn't sell this...
-  +c: 1|Kindly explain to her that you didn't sell this potion.  Maybe she'll calm down and leave?  A little magic could help too... @A
-  +c: 2|Give her a replacement potion on the house.  The fake one looks like it's similar to @B.|HAS(@B)
-  +c: 3|Demand that she leave at once! You're not going to get scammed with this.
->1,dice
-  +p: As you explain, you attempt to placate her with your magic.
-  +dice: @A
-  +pass: 1pass
-  +fail: 1fail
->1pass,modify
-  +p: Your soothing words calm her down and she leaves without fanfare.
-  +next: e
->1fail,modify
-  +p: Uh oh.  She throws an impressive conniption that manifests as a lot of yelling, the fake potion shattering on the floor, and the damaging of some of your wares.  After about an hour of this screaming, she finally leaves.
-  +rem: @C
-  +next: e
->2,modify
-  +p: She grumpily accepts your replacement.
-  +rem: @B
-  +next: e
->3,choice
-  +p: A furrowed brow, a tilted chin, a clenched fist.  These are the signs of impending violence...
-  +c: 3fight|Ready your magic.  This could get ugly... @D
-  +c: 3relent|Relent and give her the replacement @B and a little extra @E for good measure.|HAS(@B),HAS(@E)
-  +c: 3relent2|Relent and give her a fair refund @F|HAS(@F)
->3fight,dice
-  +p: You ready a spell to intimidate her.
-  +dice: @D
-  +pass: 3fightpass
-  +fail: 1fail
->3fightpass,modify
-  +p: She screams in terror, throws the foreign potion at the ground where it shatters, and retreats gracelessly from your shop
-  +next: e
->3relent,modify
-  +p: You hand over @B and @E.  She huffs at you in indignation, but leaves.
-  +rem: @B
-  +rem: @E
-  +next: e
->3relent2,modify
-  +p: You shell out @F. With a smug grin, the customer snatches the purse and leaves.
-  +rem: @F
-  +next: e
+#Unfortunate Evil,💀
+@A=1 EFFECT_REPLACE_CURSE
+>0,m
+  +p: Abruptly, an undead creature steps into your shop, raises a bony finger at you, and zaps you with a dark lightning.\n\nThe pain of it causes you to pass out. When you awaken, the creature is gone, but you feel... off.\n\nSuch is the peril of being a witch.
+  +add: @A
+  +n: e
 
 #Injured Dragon,🐲
 @A=HEART(1)
-@B=1 POT_DRAGON_SWEAT
-@C=6 GOLD
+@B1=1 POT_DRAGON_SWEAT
+@B2=ING(1 POT_DRAGON_SWEAT)
+@L1=The angry dragon breaths streams of fire, but the potion protects you as you heal him. The villager is grateful and rewards you for your effort. 
+@L2=with that you can get close without issue.
+@C=10 GOLD
 @E=1 FAVOR_CAT
->0,choice
-  +p: A villager rushes into your shop. "My pet dragon!", he says, "He's injured. Can you help?"<br>br>You walk outside to see an irritated, tiny dragon with a gash across his body.  Smoke streams from its nostrils, ready to burn anything that comes too close.<br><br>You can sense the Black Cat observing you.
-  +c: 1|You could try to calm him down so you can treat his wounds, perhaps? @A
-  +c: 2|You have @B; the fire won't hurt you so you can get close and heal him.|HAS(@B) 
+>S,m
+  +p: A villager rushes into your shop. "My pet dragon!", he says, "He's injured. Can you help?"\n\nYou walk outside to see an irritated, tiny dragon with a gash across his body. Smoke streams from its nostrils, ready to burn anything that comes too close.
+  +n: 0
+>0,ch
+  +p: You know you can do this if you can get close. You can sense the Black Cat observing you.
+  +c: 1|Try to calm the dragon down. @A
+  +c: 2a|You have @B1; @L2|HAS(@B1) 
+  +c: 2b|You can mix\n@B1. @L2|HAS_I(@B1)
   +c: 3|Sorry, dragons are too dangerous.
->1,dice
-  +p: Carefully you step towards the little dragon, readying your magic.
+>1,d
+  +p: Carefully you step towards the dragon, readying your magic.
   +dice: @A
   +pass: 1pass
   +fail: 1fail
->1pass,modify
-  +p: Your soothing energy calms the dragon, and he lets you approach without incident. You're able to bandage its wounds.<br><br>The grateful villager rewards you for your effort.
+>1pass,m
+  +p: Your soothing energy calms the dragon, and he lets you approach. You're able to bandage his wounds.\n\nYou feel like your magic is getting stronger.
   +add: @C
-  +next: e
->1fail,modify
-  +p: The angry dragon flails and breaths crazy amounts fire.  You barely manage to escape unscathed.  The villager rushes him away, shouting about how much you upset his pet.<br><br>After this debacle, you know the Black Cat is quite displeased with you.
+  +add: 1 EFFECT_FACE_ADD_HEART
+  +n: e
+>1fail,m
+  +p: The angry dragon flails and breaths crazy amounts fire. You barely manage to escape unscathed!\n\nThe villager rushes him away, shouting about how much you upset his pet.\n\nAfter this debacle, you know the Black Cat is very displeased with you.
   +rem: 2 FAVOR_CAT
-  +next: e
->2,modify
-  +p: The angry dragon breaths streams of fire, but the potion protects you as you heal him.  The villager is grateful. He rewards you for your effort.
-  +rem: @B
-  +add: @C
-  +add: @E
-  +next: e
->3,modify
-  +p: "Some witch you are!" The villager spits at you and leaves with his dragon.  You can sense the Black Cat's displeasure.
+  +n: e
+>2a,m
+  +p: @L1
+  +rem: @B1
+  +add: @C|@E
+  +n: e
+>2b,m
+  +p: @L1
+  +rem: @B2
+  +add: @C|@E
+  +n: e
+>3,m
+  +p: "Some witch you are!"\n\nThe villager spits at you and leaves with his dragon.\n\nYou can sense the Black Cat's displeasure.
   +rem: @E
-  +next: e
+  +n: e
 
 #You Have a Cold,🤧
 @A=1 POT_COLD_CURE
->0,choice
+@B=ING(1 POT_COLD_CURE)
+@L=A lot better. You feel like you can harvest extra today!
+>0,ch
   +p: You feel groggy and sick this morning, and it's a struggle to get out of bed.
   +c: 1|You're not feeling well, and simply cannot be a proper witch today.
   +c: 2|Drink @A.|HAS(@A)
->1,modify
+  +c: 3|Mix @A and drink it.|HAS_I(@A)
+>1,m
   +p: You should feel better soon, but not today.
-  +add:1 EFFECT_COLD
->2,modify
-  +p: You drink @A and feel better.
+  +add: 1 EFFECT_COLD
+>2,m
+  +p: You drink @A and feel better.\n\n...@L
   +rem: @A
-  +next: e
+  +add: 1 EFFECT_GREEN_THUMB
+  +n: e
+>3,m
+  +p: You mix @A and drink it.\n\nYou feel better.\n\n...@L
+  +rem: @B
+  +add: 1 EFFECT_GREEN_THUMB
+  +n: e
 
 #Green Thumbs,🌱
->0,modify
-  +p: You wake up this morning to find that both of your thumbs are bright green! Alarmed, you begin to lookup how to cure this ailment until you notice that your seed beds are sparkling... Could it be?  Perhaps today you'll get extra harvest.
-  +add:1 EFFECT_GREEN_THUMB
-  +next: e
+>0,m
+  +p: Today is a good day. You woke up with green thumbs!
+  +add: 1 EFFECT_GREEN_THUMB
+  +n: e
+
+#Cursed Robbery!,🦹‍♂️
+@A=ALL GOLD
+@B=FIRE(2)
+@C=HEART(2)
+>0,ch
+  +p: A costumed man dashes into your shop.\n\n"Give me all your money or I'll curse you!"
+  +c: 1|Cower and give him @A.
+  +c: 2|Stand your ground. @B
+  +c: 3|Reason with him. @C
+>1,m
+  +p: You empty your coffers and give up @A.
+  +rem: @A
+  +n: e
+>2,d
+  +p: You raise your hands...
+  +dice: @B
+  +pass: 2pass
+  +fail: 2fail
+>2pass,m
+  +p: Your spell terrifies the would-be robber, who scurries away, dropping some coins on the floor.
+  +add: 3 GOLD
+  +n: e
+>2fail,m
+  +p: He has a trick up his sleeve. He raises his hands and, after a flash, you fall to the ground, feeling ill!\n\n After a struggle, you are barely able to fend him off and he leaves.
+  +add: 1 EFFECT_REPLACE_CURSE
+  +n: e
+>3,d
+  +p: You raise your hands...
+  +dice: @C
+  +pass: 3pass
+  +fail: 2fail
+>3pass,m
+  +p: You reason with the man, and he is impressed by your wisdom. He, miraculously, leaves you with a generous tip.
+  +add: 10 GOLD
+  +n: e
 
 #Mason,🧱
 @A=1 BLUEPRINT_SPARKLEWEED
 @B=1 BLUEPRINT_BRAMBLEBERRY
-@C=1 BLUEPRINT_SHADOWPETAL
+@C=1 BLUEPRINT_SPECIALPETAL
 @D=5 GOLD
 @L1=Before the day is done you have a lovely new addition to your garden.
 @L2=Build a bed for
->0,choice
-  +p: A mason visits your shop.  He offers to upgrade your garden for @D.
-  +c: 1a|@L2<br>@A.|HAS(@D)
-  +c: 1b|@L2<br>@B.|HAS(@D)
-  +c: 1c|@L2<br>@C.|HAS(@D)
+>0,ch
+  +p: A mason visits you. He offers to upgrade your garden for @D.
+  +c: 1a|@L2\n@A.|HAS(@D)
+  +c: 1b|@L2\n@B.|HAS(@D)
+  +c: 1c|@L2\n@C.|HAS(@D)
   +c: 4|No thanks.
->1a,modify
+>1a,m
   +p: @L1
   +rem: @D
   +add: @A
-  +next: e
->1b,modify
+  +n: e
+>1b,m
   +p: @L1
   +rem: @D
   +add: @B
-  +next: e
->1c,modify
+  +n: e
+>1c,m
   +p: @L1
   +rem: @D
   +add: @C
-  +next: e
->4,modify
+  +n: e
+>4,m
   +p: He leaves.
-  +next: e
-
-#Demonic Deal,👹
-@A1=FIRE(1)
-@A2=HEART(1)
-@B1=FIRE(2)
-@B2=GROW(1)
-@L=The demon snaps its fingers, and you feel something fundamental change within you.
->0,choice
-  +p: You notice a pair of eyes watching you from the shadows.  When you turn to stare, a smiling demon reveals itself. "I'll have you know, I'm a creature of peace.  Would you like a deal, my dear?"
-  +c: 1|Convert all @A1 to @A2.
-  +c: 2|Convert all @B1 to @B2.
-  +c: 3|No thanks.
->1,modify
-  +p: @L
-  +add: @A2
-  +next: e
->2,modify
-  +p: @L
-  +add: @B2
-  +next: e
->3,modify
-  +p: It leaves, dejected.
-  +next: e
-
-#Panicked Cook,👨🏼‍🍳
-@A=1 POT_TINCTURE_OF_TASTE
->0,choice
-  +p: A man in a chef's hat rushes into your shop. "Oh dear, oh dear, oh dear, I'm in a terrible terrible mess! It's the Duke's birthday today, and I should be making him a lovely big birthday cake."
-  +c: 1|Inform him that this is a potion shop, not a bakery.
-  +c: 2|You could give him @A. That'll make anything taste good.|HAS(@A)
->1,modify
-  +p:  "I've forgotten to buy the ingredients. I'll never get them in time now. He'll sack me! What will I do", He mutters to himself as he leaves.
-  +next: e
->2,modify
-  +p: "I am saved! Thank you!"  He leaves you a generous tip.
-  +rem: @A
-  +add: 3 GOLD
-  +next: e
+  +n: e
 
 #Herb Merchant,🛒
   @A1=GOLD(RAND1_2)
@@ -1767,145 +2016,191 @@ addEventListener('load', async () => {
   @B1=GOLD(RAND2_3)
   @B2=HERB2(RAND2_3)
   @L=You make the trade.
-  >0,choice
-    +p: A traveling merchant offers to trade with you.  "Got a surplus of plants.  I can give ya a good deal."
-    +c: 1|Trade @A1 for @A2.|HAS(@A1)
-    +c: 2|Trade @B1 for @B2.|HAS(@B1)
-    +c: e|Decline the offer
-  >1,modify
-    +p: @L
-    +rem: @A1
-    +add: @A2
-    +next: e
-  >2,modify
-    +p: @L
-    +rem: @B1
-    +add: @B2
-    +next: e
+  >0,ch
+.  +p: A traveling merchant visits. "Got a surplus of plants. I can give ya a good deal."
+.  +c: 1|Trade @A1 for\n@A2.|HAS(@A1)
+.  +c: 2|Trade @B1 for\n@B2.|HAS(@B1)
+.  +c: e|Decline the offer
+  >1,m
+.  +p: @L
+.  +rem: @A1
+.  +add: @A2
+.  +n: e
+  >2,m
+.  +p: @L
+.  +rem: @B1
+.  +add: @B2
+.  +n: e
 
 #Attack!,😈
 @A=FIRE(1)
 @B=HEART(2)
 @C=1 FAVOR_CAT
-@L=The villagers are very grateful, and scrounge together a nice reward for you.
->0,choice
+@L=The grateful villagers scrounge together a nice reward for you.
+>0,ch
   +p: A monster is attacking the village! As a witch, it is your duty to help.
-  +c: 1|Fend off the monster with your magic.<br>@A
-  +c: 2|Maybe diplomacy will work this time.<br>@B
->1,dice
+  +c: 1|Fend off the monster with your magic.\n@A
+  +c: 2|Maybe diplomacy will work this time.\n@B
+>1,d
   +p: You prepare to launch a spell at the monster.
   +dice: @A
   +pass: 1pass
   +fail: 1fail
->1pass,modify
-  +p: With the villagers help, you manage to fend off the monster.<br><br>@L  
+>1pass,m
+  +p: With the villagers help, you manage to fend off the monster.\n\n@. 
   +add: 5 GOLD
-  +next: e
->1fail,modify
-  +p: Your spell is not enough, and after a battle that lasts for hours, the monster is finally fended off by the villagers.  Bedraggled and exhausted, you return to your shop.<br><br>The Black Cat is displeased with your performance.
+  +n: e
+>1fail,m
+  +p: Your spell is not enough, and after a long battle, the monster is finally fended off by the villagers. Bedraggled and exhausted, you return to your shop.\n\nThe Black Cat is displeased with your performance.
   +rem: @C
-  +next: e
->2,dice
+  +n: e
+>2,d
   +p: With eyes closed, you reach out to the monster's chaotic mind with your magic.
   +dice: @B
   +pass: 2pass
   +fail: 1fail
->2pass,modify
-  +p: Your spell sooths the monster just enough for you to get it to decide to leave peacefully.<br><br>@L
+>2pass,m
+  +p: Your spell sooths the monster just enough for you to get it to decide to leave peacefully.\n\n@L
   +add: @C
-  +next: e
+  +n: e
 
 #Villager Contract,📜
 @A=POT1(1)
-@B=7 GOLD
+@B=9 GOLD
 @C=1 FAVOR_CAT
->0,choice
-  +p: A villager comes to your shop and requisitions a potion:<br><br>@A.
-  +c: 1|Sell the potion for @B.|HAS(@A)
-  +c: 2|Say you'll have the potion ready by next week.
-  +c: 3|Say you cannot help. The Black Cat won't be pleased.
->1,modify
+@D=ING(@A)
+>0,ch
+  +p: A villager comes to your shop and requisitions a potion:\n\n@A.
+  +c: 1|Sell the potion for\n@B.|HAS(@A)
+  +c: 2|You can mix it and sell it right now for\n@B.|HAS_I(@A)
+  +c: 3|Say that you'll have the potion ready by next week.
+>1,m
   +p: The villager buys the potion and leaves.
   +rem: @A
   +add: @B
-  +next: e
->2,modify
+  +n: e
+>2,m
+  +p: The villager buys the potion and leaves.
+  +rem: @D
+  +add: @B
+  +n: e
+>3,m
   +p: The villager leaves, promising to return next week.
-  +next: e
+  +n: e
   +add: 1 CONTRACT_VILLAGER
->3,modify
-  +p: The villager leaves, disappointed.
-  +rem: @C
-  +next: e
+
+#Demonic Deal,👹
+@A1=1
+@A2=1 DICE_CURSE
+@C=1
+@D=1 EFFECT_FACE_ADD_CURSE
+@L=The demon snaps its fingers, and you feel something fundamental change within you.
+>0,ch
+  +p: You notice a pair of eyes watching you from the shadows. When you turn to stare, a smiling demon reveals itself.\n\n"Would you like a deal, my dear?"
+  +c: 1|Add @A1\nAND\nadd @A2.
+  +c: 2|No thanks.
+>1,m
+  +p: @L
+  +add: @C
+  +add: @D
+  +n: e
+>2,m
+  +p: It leaves.
+  +n: e
 
 #The Black Cat,🐈‍⬛
 @A=GOLD(RAND2_4)
 @B=1 FAVOR_CAT
 @L1=The Black Cat's eyes glow
 @L2=and new seed bed appears in your garden.
->0,choice
-  +p: The Black Cat suddenly appears. "Tribute. @A. I demand it."
+>0,ch
+  +p: The Black Cat suddenly appears.\n\n"Tribute. @A. I demand it."
   +c: 1|Give the gold to the Black Cat.|HAS(@A)
-  +c: fail|You don't have enough gold.
->1,modify
-  +p: With a mischievous grin, The Black Cat gathers the gold.  "Much appreciated, now I shall grant you a boon."
+  +c: fail|Say that you can't.
+>1,m
+  +p: With a mischievous grin, The Black Cat gathers the gold.\n\n"Much appreciated, now I shall grant you a boon."
   +rem: @A
-  +next: ch
->ch,choice
+  +n: ch
+>ch,ch
   +p: "What would you like?"
-  +c: 2|+1 Magic Dice.
-  +c: 3|+1 BLUEPRINT_SPARKLEWEED
-  +c: 4|+1 BLUEPRINT_BRAMBLEBERRY
-  +c: 5|+1 BLUEPRINT_SHADOWPETAL
->2,modify
-  +p: @L1 and you feel a surge of power within you.
-  +add: 1 DICE_NEW
-  +next: e
->3,modify
-  +p: @L1, @L2
-  +add: 1 BLUEPRINT_SPARKLEWEED
-  +next: e
->4,modify
-  +p: @L1, @L2
-  +add: 1 BLUEPRINT_BRAMBLEBERRY
-  +next: e
->5,modify
-  +p: @L1, @L2
-  +add: 1 BLUEPRINT_SHADOWPETAL
-  +next: e
->fail,modify
-  +p: "I see," The Black Cat says, "Do not disappoint me again."
+>fail,m
+  +p: "I see," The Black Cat says. "Do not disappoint me again. Despite this, I shall grant you a boon."
   +rem: @B
-  +next: e
+  +n: ch
+
+#The Final Test,🐈‍⬛
+@A=FIRE(3)
+@B=HEART(3)
+@C=GOLD(10)
+@L1=You prepare to cast a spell to impress the Black Cat.
+@L2=The Black Cat emits a soft purr of satisfaction. "Very good. When I return, surely you will be rewarded."
+@L3=The fur stands on end as the Black Cat's eyes glow red. "This is not the work of a true witch."
+>0,ch
+  +p: The Black Cat suddenly appears.\n\n"I have a final test for you. Demonstrate your magic to me."
+  +c: 1|Cast a threatening fire spell.\n@A
+  +c: 2|Cast a soothing heart spell.\n@B
+  +c: 3|Give the cat the money you've earned, surely @C is enough.|HAS(@C)
+>1,d
+  +p: @L1
+  +dice: @A
+  +pass: 1pass
+  +fail: 1fail
+>1pass,m
+  +p: @L2
+  +n: e
+>1fail,m
+  +p: @L3
+  +rem: ALL FAVOR_CAT
+  +n: e
+>2,d
+  +p: @L1
+  +dice: @B
+  +pass: 1pass
+  +fail: 1fail
+>3,m
+  +p: "A bargain?. The cat makes a gagging sound that could almost have been a laugh. "Very well, I accept."
+  +rem: @C
+  +n: e
 
 #Expulsion,🐈‍⬛
->0,choice
-  +p: The Black Cat appears in front of you and stares you down with disappointed eyes.<br><br>"I now see that you are not worthy of witchhood.  I should never have allowed you your magic."<br><br>A tugging, a pulling, a ripping sensation engulfs you, tearing out a piece of you, eviscerating your sense of self. You're left unconscious, on the ground with nothing.<br><br>You are no longer a witch.
+>0,ch
+  +p: The Black Cat appears in front of you and stares you down with disappointed eyes.\n\n"I now see that you are not worthy of witchhood."\n\nA tugging, a pulling, a ripping sensation engulfs you, tearing out a piece of you, eviscerating your sense of self. You're left unconscious, on the ground with nothing.\n\nYou are no longer a witch.
   +c: 1|Try again.
   +c: 2|Quit.|HAS(999 GOLD)
 
-#The End,🐈‍⬛
->0,choice
-  +p: "Alright, that's enough," says the Black Cate. "I'm pleased with you.  You may keep your magic."<br><br>Congratulations! You've completed the game.<br><br>Would you like to play again?
+#True Witch,🐈‍⬛
+>0,ch
+  +p: "That's enough," says the Black Cat. "I'm pleased with you. You may keep your magic."\n\nCongratulations! You've completed the game.\n\nWould you like to play again?
   +c: 1|Yes.
   +c: 2|No.|HAS(999 GOLD)`;;
-    let gameEvents = parseEvents(eventsTxt);
-    gameSetupEvents(gameState, gameEvents);
+    gameSetupEvents(gameState, parseEvents(eventsTxt.replaceAll('\\n', '<br>')));
     // let gameEvents2 = parseEvents(eventString);
     // console.log('parsed events',copyObject(gameEvents));
     console.log('game events', gameState.events);
     gameState.day = 0;
     calendarSetDay(gameState.ui.calendar, 0);
     // gameState.res.push(
-    //   ResourceType.POT_GROWTH,
-    //   ResourceType.POT_POWER_POTION,
-    //   ResourceType.POT_EMPATHY
+    //   ResourceType.POT_GRO,
+    //   ResourceType.POT_POW,
+    //   ResourceType.POT_EMP
     // );
-    for (let i = 0; i < 5; i++) {
-        gameState.res.push(ResourceType.FAVOR_CAT);
+    for (let i = 0; i < 3; i++) {
+        gameState.res.push(ResourceType.FAV_CAT);
+        // gameState.res.push(ResourceType.POT_GRO);
+        // gameState.res.push(ResourceType.GOLD);
+        // gameState.res.push(ResourceType.REAG_SKY);
+        // gameState.res.push(ResourceType.REAG_SUN);
+        // gameState.res.push(ResourceType.HERB_SPE);
+        // gameState.res.push(ResourceType.HERB_BRA);
+        // gameState.res.push(ResourceType.HERB_SPA);
+        // gameState.res.push(ResourceType.POT_DRA);
     }
+    // gameState.magicDice.push(
+    //   createMagicDiceWithDoubleFaceAndBlank(ResourceType.DICE_FIR)
+    // );
     runEvent(gameState, gameState.events[0]);
-    // runEvent(gameState, gameEvents.find(e => e.title.includes('Wizard'))!);
+    // runEvent(gameState, gameState.events.find(e => e.title.includes('You Have a Cold'))!);
+    // runEvent(gameState, gameState.events.find(e => e.title.includes('Villager Contract'))!);
     // debug default event state
     // let newEventState = copyObject(defaultEventState);
     // gameCreateMerchantEvents(gameState, newEventState);
@@ -1927,37 +2222,41 @@ let createGameState = () => {
         res: [],
         magicDice: [
             createMagicDice(),
-            // createMagicDice(),
-            // createMagicDice(),
-            // createMagicDice(),
         ],
         harvestRoll: [],
         ui: {},
         vars: {
-            avblBlueprints: [ResourceType.BLUEPRINT_SPECIALPETAL],
+            avblBlueprints: [ResourceType.BP_SPE],
         },
     };
-    state.res.push(ResourceType.BLUEPRINT_SPARKLEWEED, ResourceType.BLUEPRINT_BRAMBLEBERRY
-    // ResourceType.BLUEPRINT_SPECIALPETAL
+    state.res.push(ResourceType.BP_SPA, ResourceType.BP_BRA
+    // ResourceType.BP_SPE
     );
     return state;
 };
 let createMagicDice = () => {
     return [
-        ResourceType.DICE_FIRE_MAGIC,
-        ResourceType.DICE_FIRE_MAGIC,
-        ResourceType.DICE_HEART_MAGIC,
-        ResourceType.DICE_HEART_MAGIC,
-        ResourceType.DICE_GROW,
-        ResourceType.DICE_GROW,
+        ResourceType.DICE_FIR,
+        ResourceType.DICE_FIR,
+        ResourceType.DICE_HEA,
+        ResourceType.DICE_HEA,
+        ResourceType.DICE_GRO,
+        ResourceType.DICE_GRO,
     ];
 };
-let createMagicDiceGrow = () => {
-    let arr = [];
+let createMagicDiceBlank = () => {
+    let d = [];
     for (let i = 0; i < 6; i++) {
-        arr.push(ResourceType.DICE_GROW);
+        d.push(ResourceType.DICE_BLA);
     }
-    return arr;
+    return d;
+};
+let createMagicDiceGrow = () => {
+    let d = [];
+    for (let i = 0; i < 6; i++) {
+        d.push(ResourceType.DICE_GRO);
+    }
+    return d;
 };
 let gameStateModifyResource = (state, resource, amt) => {
     let iterations = Math.abs(amt);
@@ -1988,21 +2287,21 @@ let stringToResourceType = (str) => {
             return resource;
         }
     }
-    throw new Error(`Unknown resource type: ${str}`);
+    throw 1;
 };
 let gameStateHasHarvestRoll = (state) => {
     return state.harvestRoll.length > 0;
 };
 let blueprintToHerb = (blueprint) => {
     switch (blueprint) {
-        case ResourceType.BLUEPRINT_SPARKLEWEED:
-            return ResourceType.HERB_SPARKLEWEED;
-        case ResourceType.BLUEPRINT_BRAMBLEBERRY:
-            return ResourceType.HERB_BRAMBLEBERRY;
-        case ResourceType.BLUEPRINT_SPECIALPETAL:
-            return ResourceType.HERB_SPECIALPETAL;
+        case ResourceType.BP_SPA:
+            return ResourceType.HERB_SPA;
+        case ResourceType.BP_BRA:
+            return ResourceType.HERB_BRA;
+        case ResourceType.BP_SPE:
+            return ResourceType.HERB_SPE;
         default:
-            throw new Error(`Unknown blueprint: ${blueprint}`);
+            throw 1;
     }
 };
 let getCurrentState = () => {
@@ -2154,7 +2453,8 @@ let eventModalAddTitle = (eventModal, gameEventState) => {
 let eventModalAddMod = (content, modifyResource) => {
     let resourceText = gameEventReplaceEnumWithIcons(modifyResource.resource, COLOR_HIGHLIGHT_DARK_TEXT);
     let isPositive = modifyResource.amt > 0;
-    let amtText = isPositive ? '+' + modifyResource.amt : modifyResource.amt;
+    let amt = isNaN(modifyResource.amt) ? 'all' : modifyResource.amt;
+    let amtText = isPositive ? '+' + amt : amt;
     let p2 = eventModalCreateButtonChosenText(`${amtText} ${resourceText}`);
     appendChild(content, p2);
 };
@@ -2205,19 +2505,27 @@ let eventModalAddChild = (eventModal, gameEventChild, gameEventState, state) => 
             eventModalAddMod(content, modifyResource);
         }
     }
-    if (gameEventChild.next) {
+    console.log('RENDER GAME CHILD', gameEventChild);
+    if (gameEventChild.n) {
         let button = createElement(BUTTON, {
             class: CLASS_BTN_TEXT,
-            [INNER_HTML]: gameEventChild.next === 'e' ? 'Done' : 'Next',
+            [INNER_HTML]: gameEventChild.n === 'e' ? 'Done' : 'Next',
         });
         domAddEventListener(button, EVENT_CLICK, () => {
-            let child = gameEventGetChild(gameEventState, gameEventChild.next);
+            let child = gameEventGetChild(gameEventState, gameEventChild.n);
             gameEventRunChild(state, gameEventState, child);
         });
         appendChild(next, button);
         appendChild(content, next);
     }
     if (gameEventChild.choices) {
+        if (gameEventChild.flex) {
+            setStyle(choices, {
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '2px',
+            });
+        }
         for (let choice of gameEventChild.choices) {
             let isDisabled = !choice?.parsedCondition();
             let args = {
@@ -2228,36 +2536,43 @@ let eventModalAddChild = (eventModal, gameEventChild, gameEventState, state) => 
                 args.disabled = 'disabled';
             }
             let button = createElement(BUTTON, args);
+            if (gameEventChild.flex) {
+                setAttribute(button, 'class', CLASS_BTN_TEXT + ' ' + 'event-choice-flex');
+                setStyle(button, {
+                    width: '49%',
+                    textDecoration: 'none',
+                });
+            }
             domAddEventListener(button, EVENT_CLICK, () => {
                 let p2 = eventModalCreateButtonChosenText(choice.text);
                 appendChild(content, p2);
-                let child = gameEventGetChild(gameEventState, choice.next);
+                let child = gameEventGetChild(gameEventState, choice.n);
                 gameEventRunChild(state, gameEventState, child);
             });
             appendChild(choices, button);
         }
         appendChild(content, choices);
     }
-    eventModalScrollToBottom(eventModal);
+    eventModalScrollToBottom(eventModal, !gameEventChild.fastScroll);
 };
-let eventModalScrollToBottom = (eventModal) => {
+let eventModalScrollToBottom = (eventModal, smooth = true) => {
     eventModal.content.scrollTo({
         top: eventModal.content.scrollHeight,
-        behavior: 'smooth',
+        behavior: smooth ? 'smooth' : 'auto',
     });
 };
 let eventModalHandleRollClick = async (eventModal, gameEventState, state, gameEventChild, args) => {
     let { content, diceButtons, diceElements } = eventModal;
     for (let i = 0; i < diceButtons.length; i++) {
         let button = diceButtons[i];
-        if (i === 0) {
-            setStyle(button, {
-                visibility: 'hidden',
-            });
-        }
-        else {
-            button.remove();
-        }
+        // if (i === 0) {
+        //   setStyle(button, {
+        //     visibility: 'hidden',
+        //   });
+        // } else {
+        //   button.remove();
+        // }
+        button.disabled = true;
     }
     let diceToRoll = args.diceToRoll.slice();
     let diceResults = await gameRollDiceUi(diceToRoll.map((d, i) => ({
@@ -2279,23 +2594,34 @@ let eventModalHandleRollClick = async (eventModal, gameEventState, state, gameEv
         });
         appendChild(content, p);
         if (args.useLuck) {
-            gameStateModifyResource(state, ResourceType.POT_LIQUID_LUCK, -1);
+            gameStateModifyResource(state, ResourceType.POT_LIQ, -1);
             eventModalAddMod(content, {
                 amt: -1,
-                resource: ResourceType.POT_LIQUID_LUCK,
+                resource: ResourceType.POT_LIQ,
             });
         }
         if (args.usePower) {
             eventModalAddMod(content, {
                 amt: -1,
-                resource: ResourceType.POT_POWER_POTION,
+                resource: ResourceType.POT_POW,
             });
         }
         if (args.useEmpathy) {
             eventModalAddMod(content, {
                 amt: -1,
-                resource: ResourceType.POT_EMPATHY,
+                resource: ResourceType.POT_EMP,
             });
+        }
+        for (let i = 0; i < diceButtons.length; i++) {
+            let button = diceButtons[i];
+            // if (i === 0) {
+            //   setStyle(button, {
+            //     visibility: 'hidden',
+            //   });
+            // } else {
+            //   button.remove();
+            // }
+            button.remove();
         }
         let child = gameEventGetChild(gameEventState, didPass ? gameEventChild.pass : gameEventChild.fail);
         gameEventRunChild(state, gameEventState, child);
@@ -2321,12 +2647,12 @@ let eventModalAddDiceButtons = (eventModal, gameEventChild, gameEventState, stat
     });
     appendChild(next, button);
     eventModal.diceButtons.push(button);
-    let luckPotionCount = gameStateGetResourceCount(state, ResourceType.POT_LIQUID_LUCK);
-    let powerPotionCount = gameStateGetResourceCount(state, ResourceType.POT_POWER_POTION);
-    let empathyPotionCount = gameStateGetResourceCount(state, ResourceType.POT_EMPATHY);
+    let luckPotionCount = gameStateGetResourceCount(state, ResourceType.POT_LIQ);
+    let powerPotionCount = gameStateGetResourceCount(state, ResourceType.POT_POW);
+    let empathyPotionCount = gameStateGetResourceCount(state, ResourceType.POT_EMP);
     if (!args.isAny) {
         if (luckPotionCount > 0) {
-            let luckPotionLabel = Labels[ResourceType.POT_LIQUID_LUCK];
+            let luckPotionLabel = Labels[ResourceType.POT_LIQ];
             let luckBtnText = `Use a ${luckPotionLabel.l}${luckPotionLabel.icon}<br>(all rolls meet reqs).`;
             let luckButton = createElement(BUTTON, {
                 class: CLASS_BTN_TEXT,
@@ -2342,7 +2668,7 @@ let eventModalAddDiceButtons = (eventModal, gameEventChild, gameEventState, stat
             eventModal.diceButtons.push(luckButton);
         }
         if (powerPotionCount > 0) {
-            let powerBtnText = `Use a ${highlightResource(ResourceType.POT_POWER_POTION, COLOR_HIGHLIGHT_DARK_TEXT)}<br>(1 additional dice).`;
+            let powerBtnText = `Use a ${highlightResource(ResourceType.POT_POW, COLOR_HIGHLIGHT_DARK_TEXT)}<br>(1 additional dice).`;
             let powerButton = createElement(BUTTON, {
                 class: CLASS_BTN_TEXT,
                 [INNER_HTML]: powerBtnText,
@@ -2354,29 +2680,29 @@ let eventModalAddDiceButtons = (eventModal, gameEventChild, gameEventState, stat
                 eventModal.diceElements.push(dice);
                 eventModal.content.insertBefore(dice.root, eventModal.next);
                 eventFuncArgs.diceToRoll.push(d);
-                gameStateModifyResource(state, ResourceType.POT_POWER_POTION, -1);
+                gameStateModifyResource(state, ResourceType.POT_POW, -1);
                 eventFuncArgs.usePower = true;
             });
             appendChild(next, powerButton);
             eventModal.diceButtons.push(powerButton);
         }
         if (empathyPotionCount > 0) {
-            let growMagicDiceHl = highlightResource(ResourceType.DICE_GROW, COLOR_HIGHLIGHT_DARK_TEXT);
-            let heartMagicDiceHl = highlightResource(ResourceType.DICE_HEART_MAGIC, COLOR_HIGHLIGHT_DARK_TEXT);
-            let empathyBtnText = `Use a ${highlightResource(ResourceType.POT_EMPATHY, COLOR_HIGHLIGHT_DARK_TEXT)}<br>(tmp convert ${growMagicDiceHl} to ${heartMagicDiceHl}).`;
+            let growMagicDiceHl = highlightResource(ResourceType.DICE_GRO, COLOR_HIGHLIGHT_DARK_TEXT);
+            let heartMagicDiceHl = highlightResource(ResourceType.DICE_HEA, COLOR_HIGHLIGHT_DARK_TEXT);
+            let empathyBtnText = `Use a ${highlightResource(ResourceType.POT_EMP, COLOR_HIGHLIGHT_DARK_TEXT)}<br>(tmp convert ${growMagicDiceHl} to ${heartMagicDiceHl}).`;
             let empathyButton = createElement(BUTTON, {
                 class: CLASS_BTN_TEXT,
                 [INNER_HTML]: empathyBtnText,
             });
             domAddEventListener(empathyButton, EVENT_CLICK, () => {
                 empathyButton.disabled = true;
-                gameStateModifyResource(state, ResourceType.POT_EMPATHY, -1);
+                gameStateModifyResource(state, ResourceType.POT_EMP, -1);
                 for (let i = 0; i < eventFuncArgs.diceToRoll.length; i++) {
                     let dice = eventFuncArgs.diceToRoll[i];
                     for (let j = 0; j < dice.length; j++) {
                         let face = dice[j];
-                        if (face === ResourceType.DICE_GROW) {
-                            dice[j] = ResourceType.DICE_HEART_MAGIC;
+                        if (face === ResourceType.DICE_GRO) {
+                            dice[j] = ResourceType.DICE_HEA;
                         }
                     }
                 }
@@ -2398,7 +2724,7 @@ let eventModalCreateButtonChosenText = (text) => {
     });
     return p;
 };
-let MAX_FAVOR = 10;
+let MAX_FAVOR = 7;
 let createFavorMeter = () => {
     let root = createElement(DIV, {
         class: 'favor-meter',
@@ -2432,7 +2758,7 @@ let createGarden = (state, eventState) => {
     });
     let slots = [];
     let harvestButtons = [];
-    let hasGreenThumb = gameStateGetResourceCount(state, ResourceType.EFFECT_GREEN_THUMB) > 0;
+    let hasGreenThumb = gameStateGetResourceCount(state, ResourceType.EFF_GRE) > 0;
     for (let blueprint of blueprints) {
         let gardenSlot = createElement(DIV, {
             class: 'garden-slot',
@@ -2472,7 +2798,7 @@ let createGarden = (state, eventState) => {
         });
     }
     if (hasGreenThumb) {
-        let greenThumbLabel = Labels[ResourceType.EFFECT_GREEN_THUMB];
+        let greenThumbLabel = Labels[ResourceType.EFF_GRE];
         let greenThumbText = createElement(P, {
             class: CLASS_BTN_TEXT,
             [INNER_HTML]: `Your ${greenThumbLabel.l}${greenThumbLabel.icon} will let you harvest double.`,
@@ -2486,26 +2812,32 @@ let createGarden = (state, eventState) => {
         //   margin: '-4px',
         // });
         for (let button of harvestButtons) {
-            button.remove();
+            // button.remove();
+            button.disabled = true;
         }
-        gameStateModifyResource(state, ResourceType.EFFECT_GREEN_THUMB, -1);
-        let harvestText = eventModalCreateButtonChosenText('Harvest');
-        appendChild(root, harvestText);
+        gameStateModifyResource(state, ResourceType.EFF_GRE, -1);
         let promises = [];
         for (let slot of slots) {
             promises.push(gameRollDiceUi(slot.magicDice.map((d, i) => ({
                 dice: d,
                 elem: slot.diceList[i],
-            })), [ResourceType.DICE_GROW]));
+            })), [ResourceType.DICE_GRO]));
         }
         let diceRolls = await Promise.all(promises);
+        let multiplier = hasGreenThumb ? 2 : 1;
         let harvestResults = gameHarvest(state, diceRolls.map((r, i) => ({
             resourceType: blueprintToHerb(slots[i].type),
             diceResults: r,
-        })), hasGreenThumb ? 2 : 1);
+        })), multiplier);
         for (let i = 0; i < harvestResults.length; i++) {
             slots[i].resultArea[INNER_HTML] = '+' + String(harvestResults[i]);
         }
+        await timeoutPromise(1000);
+        for (let button of harvestButtons) {
+            button.remove();
+        }
+        let harvestText = eventModalCreateButtonChosenText('Harvest');
+        appendChild(root, harvestText);
         gameEventRunChild(state, eventState, eventState.event.children[1]);
     };
     let harvestButton = createElement(BUTTON, {
@@ -2515,16 +2847,16 @@ let createGarden = (state, eventState) => {
     domAddEventListener(harvestButton, EVENT_CLICK, handleHarvestClick);
     appendChild(root, harvestButton);
     harvestButtons.push(harvestButton);
-    let hasGrowthPotion = gameStateGetResourceCount(state, ResourceType.POT_GROWTH) > 0;
+    let hasGrowthPotion = gameStateGetResourceCount(state, ResourceType.POT_GRO) > 0;
     if (hasGrowthPotion) {
-        let growMagicDiceHl = highlightResource(ResourceType.DICE_GROW, COLOR_HIGHLIGHT_DARK_TEXT);
-        let potGrowthLabelText = `Use a ${highlightResource(ResourceType.POT_GROWTH, COLOR_HIGHLIGHT_DARK_TEXT)}<br>(adds 1 all ${growMagicDiceHl} dice).`;
+        let growMagicDiceHl = highlightResource(ResourceType.DICE_GRO, COLOR_HIGHLIGHT_DARK_TEXT);
+        let potGrowthLabelText = `Use a ${highlightResource(ResourceType.POT_GRO, COLOR_HIGHLIGHT_DARK_TEXT)}<br>(adds 1 all ${growMagicDiceHl} dice).`;
         let potOfGrowthButton = createElement(BUTTON, {
             class: CLASS_BTN_TEXT,
             [INNER_HTML]: potGrowthLabelText,
         });
         domAddEventListener(potOfGrowthButton, EVENT_CLICK, () => {
-            gameStateModifyResource(state, ResourceType.POT_GROWTH, -1);
+            gameStateModifyResource(state, ResourceType.POT_GRO, -1);
             for (let slot of slots) {
                 let growDice = createMagicDiceGrow();
                 let diceElem = createDice(state, growDice, ICON_GROW);
@@ -2547,7 +2879,7 @@ let highlightText = (text, color) => {
     let resource = getResourceFromLabel(text);
     let cbFuncName = `hl('${resource}', this)`;
     // console.log('Highlight', text, resource, cbFuncName);
-    return `<${SPAN} class="highlight-text" style="color: ${color};" onclick="${cbFuncName}" onmouseover="${cbFuncName}" onmouseout="${cbFuncName}" >${text}</${SPAN}>`;
+    return `<${SPAN} class="highlight-text" style="color: ${color};" ontouchstart="${cbFuncName}" onclick="${cbFuncName}" onmouseover="${cbFuncName}" onmouseout="${cbFuncName}" >${text}</${SPAN}>`;
 };
 window.hl = (resource, elem) => {
     // console.log('HL TEXT', resource);

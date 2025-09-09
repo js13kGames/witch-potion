@@ -56,7 +56,7 @@ Types: `choice`, `dice`, `end`, `modify`
 - `+dice:` - Dice specification
 - `+add:` - Add resources
 - `+rem:` - Remove resources
-- `+next:` - Next node reference
+- `+n:` - Next node reference
 - `+pass:` - Pass threshold
 - `+fail:` - Fail threshold
 
@@ -109,11 +109,11 @@ Type these prefixes to get code snippets:
 >3,modify
   +p: You win! The wizard gives you 2 GOLD.
   +add: 2 GOLD
-  +next: e
+  +n: e
 >4,modify
   +p: You lose! The wizard takes 2 HERB_SPARKLEWEED.
   +rem: 2 HERB_SPARKLEWEED
-  +next: e
+  +n: e
 ```
 
 ## Contributing

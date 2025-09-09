@@ -9,9 +9,10 @@ import {
   EVENT_CLICK,
   SPAN,
   timeoutPromise,
-  setStyle,
   clearChildren,
   copyObject,
+  setStyle,
+  setAttribute,
 } from '../dom';
 import {
   gameEventRunChild,
@@ -123,7 +124,8 @@ const eventModalAddMod = (
     COLOR_HIGHLIGHT_DARK_TEXT
   );
   const isPositive = modifyResource.amt > 0;
-  const amtText = isPositive ? '+' + modifyResource.amt : modifyResource.amt;
+  const amt = isNaN(modifyResource.amt) ? 'all' : modifyResource.amt;
+  const amtText = isPositive ? '+' + amt : amt;
   const p2 = eventModalCreateButtonChosenText(`${amtText} ${resourceText}`);
   appendChild(content, p2);
 };
@@ -196,13 +198,15 @@ export const eventModalAddChild = (
     }
   }
 
-  if (gameEventChild.next) {
+  console.log('RENDER GAME CHILD', gameEventChild);
+
+  if (gameEventChild.n) {
     const button = createElement(BUTTON, {
       class: CLASS_BTN_TEXT,
-      [INNER_HTML]: gameEventChild.next === 'e' ? 'Done' : 'Next',
+      [INNER_HTML]: gameEventChild.n === 'e' ? 'Done' : 'Next',
     });
     domAddEventListener(button, EVENT_CLICK, () => {
-      const child = gameEventGetChild(gameEventState, gameEventChild.next);
+      const child = gameEventGetChild(gameEventState, gameEventChild.n);
       gameEventRunChild(state, gameEventState, child);
     });
     appendChild(next, button);
@@ -210,6 +214,14 @@ export const eventModalAddChild = (
   }
 
   if (gameEventChild.choices) {
+    if (gameEventChild.flex) {
+      setStyle(choices, {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '2px',
+      });
+    }
+
     for (const choice of gameEventChild.choices) {
       const isDisabled = !choice?.parsedCondition();
       const args: Record<string, string> = {
@@ -220,10 +232,21 @@ export const eventModalAddChild = (
         args.disabled = 'disabled';
       }
       const button = createElement(BUTTON, args);
+      if (gameEventChild.flex) {
+        setAttribute(
+          button,
+          'class',
+          CLASS_BTN_TEXT + ' ' + 'event-choice-flex'
+        );
+        setStyle(button, {
+          width: '49%',
+          textDecoration: 'none',
+        });
+      }
       domAddEventListener(button, EVENT_CLICK, () => {
         const p2 = eventModalCreateButtonChosenText(choice.text);
         appendChild(content, p2);
-        const child = gameEventGetChild(gameEventState, choice.next);
+        const child = gameEventGetChild(gameEventState, choice.n);
         gameEventRunChild(state, gameEventState, child);
       });
       appendChild(choices, button);
@@ -231,13 +254,13 @@ export const eventModalAddChild = (
     appendChild(content, choices);
   }
 
-  eventModalScrollToBottom(eventModal);
+  eventModalScrollToBottom(eventModal, !gameEventChild.fastScroll);
 };
 
-export const eventModalScrollToBottom = (eventModal: EventModal) => {
+export const eventModalScrollToBottom = (eventModal: EventModal, smooth: boolean = true) => {
   eventModal.content.scrollTo({
     top: eventModal.content.scrollHeight,
-    behavior: 'smooth',
+    behavior: smooth ? 'smooth' : 'auto',
   });
 };
 
@@ -258,13 +281,14 @@ const eventModalHandleRollClick = async (
   const { content, diceButtons, diceElements } = eventModal;
   for (let i = 0; i < diceButtons.length; i++) {
     const button = diceButtons[i];
-    if (i === 0) {
-      setStyle(button, {
-        visibility: 'hidden',
-      });
-    } else {
-      button.remove();
-    }
+    // if (i === 0) {
+    //   setStyle(button, {
+    //     visibility: 'hidden',
+    //   });
+    // } else {
+    //   button.remove();
+    // }
+    (button as HTMLButtonElement).disabled = true;
   }
 
   const diceToRoll = args.diceToRoll.slice();
@@ -294,25 +318,35 @@ const eventModalHandleRollClick = async (
     appendChild(content, p);
 
     if (args.useLuck) {
-      gameStateModifyResource(state, ResourceType.POT_LIQUID_LUCK, -1);
+      gameStateModifyResource(state, ResourceType.POT_LIQ, -1);
       eventModalAddMod(content, {
         amt: -1,
-        resource: ResourceType.POT_LIQUID_LUCK,
+        resource: ResourceType.POT_LIQ,
       });
     }
     if (args.usePower) {
       eventModalAddMod(content, {
         amt: -1,
-        resource: ResourceType.POT_POWER_POTION,
+        resource: ResourceType.POT_POW,
       });
     }
     if (args.useEmpathy) {
       eventModalAddMod(content, {
         amt: -1,
-        resource: ResourceType.POT_EMPATHY,
+        resource: ResourceType.POT_EMP,
       });
     }
-
+    for (let i = 0; i < diceButtons.length; i++) {
+      const button = diceButtons[i];
+      // if (i === 0) {
+      //   setStyle(button, {
+      //     visibility: 'hidden',
+      //   });
+      // } else {
+      //   button.remove();
+      // }
+      button.remove();
+    }
     const child = gameEventGetChild(
       gameEventState,
       didPass ? gameEventChild.pass : gameEventChild.fail
@@ -360,20 +394,20 @@ const eventModalAddDiceButtons = (
 
   const luckPotionCount = gameStateGetResourceCount(
     state,
-    ResourceType.POT_LIQUID_LUCK
+    ResourceType.POT_LIQ
   );
   const powerPotionCount = gameStateGetResourceCount(
     state,
-    ResourceType.POT_POWER_POTION
+    ResourceType.POT_POW
   );
   const empathyPotionCount = gameStateGetResourceCount(
     state,
-    ResourceType.POT_EMPATHY
+    ResourceType.POT_EMP
   );
 
   if (!args.isAny) {
     if (luckPotionCount > 0) {
-      const luckPotionLabel = Labels[ResourceType.POT_LIQUID_LUCK];
+      const luckPotionLabel = Labels[ResourceType.POT_LIQ];
       const luckBtnText = `Use a ${luckPotionLabel.l}${luckPotionLabel.icon}<br>(all rolls meet reqs).`;
       const luckButton = createElement(BUTTON, {
         class: CLASS_BTN_TEXT,
@@ -396,7 +430,7 @@ const eventModalAddDiceButtons = (
     }
     if (powerPotionCount > 0) {
       const powerBtnText = `Use a ${highlightResource(
-        ResourceType.POT_POWER_POTION,
+        ResourceType.POT_POW,
         COLOR_HIGHLIGHT_DARK_TEXT
       )}<br>(1 additional dice).`;
       const powerButton = createElement(BUTTON, {
@@ -411,7 +445,7 @@ const eventModalAddDiceButtons = (
         eventModal.diceElements.push(dice);
         eventModal.content.insertBefore(dice.root, eventModal.next);
         eventFuncArgs.diceToRoll.push(d);
-        gameStateModifyResource(state, ResourceType.POT_POWER_POTION, -1);
+        gameStateModifyResource(state, ResourceType.POT_POW, -1);
         eventFuncArgs.usePower = true;
       });
       appendChild(next, powerButton);
@@ -419,15 +453,15 @@ const eventModalAddDiceButtons = (
     }
     if (empathyPotionCount > 0) {
       const growMagicDiceHl = highlightResource(
-        ResourceType.DICE_GROW,
+        ResourceType.DICE_GRO,
         COLOR_HIGHLIGHT_DARK_TEXT
       );
       const heartMagicDiceHl = highlightResource(
-        ResourceType.DICE_HEART_MAGIC,
+        ResourceType.DICE_HEA,
         COLOR_HIGHLIGHT_DARK_TEXT
       );
       const empathyBtnText = `Use a ${highlightResource(
-        ResourceType.POT_EMPATHY,
+        ResourceType.POT_EMP,
         COLOR_HIGHLIGHT_DARK_TEXT
       )}<br>(tmp convert ${growMagicDiceHl} to ${heartMagicDiceHl}).`;
       const empathyButton = createElement(BUTTON, {
@@ -436,13 +470,13 @@ const eventModalAddDiceButtons = (
       });
       domAddEventListener(empathyButton, EVENT_CLICK, () => {
         (empathyButton as HTMLButtonElement).disabled = true;
-        gameStateModifyResource(state, ResourceType.POT_EMPATHY, -1);
+        gameStateModifyResource(state, ResourceType.POT_EMP, -1);
         for (let i = 0; i < eventFuncArgs.diceToRoll.length; i++) {
           const dice = eventFuncArgs.diceToRoll[i];
           for (let j = 0; j < dice.length; j++) {
             const face = dice[j];
-            if (face === ResourceType.DICE_GROW) {
-              dice[j] = ResourceType.DICE_HEART_MAGIC;
+            if (face === ResourceType.DICE_GRO) {
+              dice[j] = ResourceType.DICE_HEA;
             }
           }
         }

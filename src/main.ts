@@ -5,7 +5,10 @@ import { ResourceType } from './eventTypes';
 import { gameSetupEvents } from './game';
 
 
-import { createGameState } from './state';
+
+import {
+  createGameState,
+} from './state';
 import { createBottomBar } from './ui/BottomBar';
 import { calendarSetDay, createCalendar } from './ui/Calendar';
 import {
@@ -18,56 +21,31 @@ import {
 } from './ui/PrimaryResources';
 
 const eventString = `
-#Disgruntled Customer,generic
-@A=HEART(RAND2_3)
-@B=POT1(1)
-@C=POT1(1 y)
-@D=FIRE(RAND1_3)
-@E=GOLD(RAND2_4)
-@F=3 GOLD
+#You Have a Cold,🤧
+@A=1 POT_COLD_CURE
+@B=ING(1 POT_COLD_CURE)
+@C=1 FAVOR_CAT
+@D=HERB1(1)
 >0,choice
-  +p: An angry customer shoves a potion in your face. "It doesn't work!" she claims.  "I need a refund!"  You see right away this potion is fake.  You didn't sell this...
-  +c: 1|Kindly explain to her that you didn't sell this potion.  Maybe she'll calm down and leave?  A little magic could help too... @A
-  +c: 2|Give her a replacement potion on the house.  The fake one looks like it's similar to @B.|HAS(@B)
-  +c: 3|Demand that she leave at once! You're not going to get scammed with this.
->1,dice
-  +p: As you explain, you attempt to placate her with your magic.
-  +dice: @A
-  +pass: 1pass
-  +fail: 1fail
->1pass,modify
-  +p: Your soothing words calm her down and she leaves without fanfare.
-  +next: e
->1fail,modify
-  +p: Uh oh.  She throws an absolute conniption that results in the fake potion shattering on the floor, damaging some of your wares.  Then she storms out.
-  +rem: @C
-  +next: e
+  +p: You feel groggy and sick this morning, and it's a struggle to get out of bed.
+  +c: 1|You're not feeling well, and simply cannot be a proper witch today.
+  +c: 2|Drink @A.|HAS(@A)
+  +c: 3|Mix @A and drink it.|HAS_I(@A)
+>1,modify
+  +p: You should feel better soon, but not today.
+  +add:1 EFFECT_COLD
 >2,modify
-  +p: She grumpily accepts your replacement.
+  +p: You drink @A and feel better.<br><br>...A lot better in fact!  You feel like you can harvest extra today!
+  +rem: @A
+  +rem: 1 HERB_BRAMBLEBERRY|1 HERB_SPARKLEWEED|1 HERB_SPECIALPETAL
+  +add: EFFECT_GREEN_THUMB
+  +add: @C|@D
+  +n: e
+>3,modify
+  +p: You mix @A and drink it.<br><br>You feel better.<br><br>...A lot better in fact!  You feel like you can harvest extra today!
   +rem: @B
-  +next: e
->3,choice
-  +p: A furrowed brow, a tilted chin, a clenched fist.  These are the signs of impending violence...
-  +c: 3fight|Ready your magic.  This could get ugly... @D
-  +c: 3relent|Relent and give her the replacement @B and a little extra @E for good measure.|HAS(@B),HAS(@E)
-  +c: 3relent2|Relent and give her a fair refund @F|HAS(@F)
->3fight,dice
-  +p: You cast a spell to intimidate her.
-  +dice: @D
-  +pass: 3fightpass
-  +fail: 1fail
->3fightpass,modify
-  +p: She screams in terror, throws the foreign potion at the ground where it shatters, and retreats gracelessly from your shop
-  +next: e
->3relent,modify
-  +p: You hand over @B and @E.  She huffs at you in indignation, but leaves.
-  +rem: @B
-  +rem: @E
-  +next: e
->3relent2,modify
-  +p: You shell out @F. With a smug grin, the customer snatches the purse and leaves.
-  +rem: @F
-  +next: e
+  +add: EFFECT_GREEN_THUMB
+  +n: e
 `;
 
 addEventListener('load', async () => {
@@ -96,7 +74,7 @@ addEventListener('load', async () => {
 
   const hoverDescription = createHoverDescription();
   appendChild(getGameRoot(), hoverDescription.root);
-  hoverDescriptionDescribe(hoverDescription, ResourceType.DICE_FIRE_MAGIC);
+  hoverDescriptionDescribe(hoverDescription, ResourceType.DICE_FIR);
   gameState.ui.hoverDescription = hoverDescription;
 
   const bottomBar = createBottomBar();
@@ -104,8 +82,7 @@ addEventListener('load', async () => {
   gameState.ui.favorMeter = bottomBar.favorMeter;
 
   const eventsTxt = await fetch('/events.wpe').then(r => r.text());
-  const gameEvents = parseEvents(eventsTxt);
-  gameSetupEvents(gameState, gameEvents);
+  gameSetupEvents(gameState, parseEvents(eventsTxt.replaceAll('\\n', '<br>')));
   // const gameEvents2 = parseEvents(eventString);
   // console.log('parsed events',copyObject(gameEvents));
   console.log('game events', gameState.events);
@@ -113,16 +90,29 @@ addEventListener('load', async () => {
   calendarSetDay(gameState.ui.calendar, 0);
 
   // gameState.res.push(
-  //   ResourceType.POT_GROWTH,
-  //   ResourceType.POT_POWER_POTION,
-  //   ResourceType.POT_EMPATHY
+  //   ResourceType.POT_GRO,
+  //   ResourceType.POT_POW,
+  //   ResourceType.POT_EMP
   // );
-  for (let i = 0; i < 5; i++) {
-    gameState.res.push(ResourceType.FAVOR_CAT);
+  for (let i = 0; i < 3; i++) {
+    gameState.res.push(ResourceType.FAV_CAT);
+    // gameState.res.push(ResourceType.POT_GRO);
+    // gameState.res.push(ResourceType.GOLD);
+    // gameState.res.push(ResourceType.REAG_SKY);
+    // gameState.res.push(ResourceType.REAG_SUN);
+    // gameState.res.push(ResourceType.HERB_SPE);
+    // gameState.res.push(ResourceType.HERB_BRA);
+    // gameState.res.push(ResourceType.HERB_SPA);
+    // gameState.res.push(ResourceType.POT_DRA);
   }
 
+  // gameState.magicDice.push(
+  //   createMagicDiceWithDoubleFaceAndBlank(ResourceType.DICE_FIR)
+  // );
+
   runEvent(gameState, gameState.events[0]);
-  // runEvent(gameState, gameEvents.find(e => e.title.includes('Wizard'))!);
+  // runEvent(gameState, gameState.events.find(e => e.title.includes('You Have a Cold'))!);
+  // runEvent(gameState, gameState.events.find(e => e.title.includes('Villager Contract'))!);
 
   // debug default event state
   // const newEventState = copyObject(defaultEventState);
