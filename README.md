@@ -1,6 +1,6 @@
 js13k2025 Competition Entry
 
-The BUILD this you must have node 18.
+To build this you must have node 18.
 
 To run the dev server you need node 22.
 
