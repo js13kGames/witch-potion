@@ -12,7 +12,6 @@ import {
 import { createEventState, GameEventState } from './eventRunner';
 import { CONDITION_DELIMITER } from './eventParser';
 import { BR, copyObject } from './dom';
-import { randInArray } from './utils';
 
 export const gameCreateMerchantEvents = (
   state: GameState,
@@ -70,34 +69,6 @@ export const gameCreateMerchantEvents = (
     text: 'Go back.',
     n: 'day',
   });
-
-  // for (const [res, cost] of Object.entries(sellCosts)) {
-  //   if (state.res.includes(res as ResourceType)) {
-  //     sellChoices.push({
-  //       text: `Sell 1 ${res} for ${cost} ${
-  //         ResourceType.GOLD
-  //       }<br> (you own ${gameStateGetResourceCount(
-  //         state,
-  //         res as ResourceType
-  //       )})`,
-  //       n: 'sell_' + res,
-  //     });
-  //     eventState.event.children.push({
-  //       id: 'sell_' + res,
-  //       type: 'modify',
-  //       p: `You sell ${res} for ${cost} ${ResourceType.GOLD}.`,
-  //       mod: [`-1 ${res}`, `${cost} ${ResourceType.GOLD}`],
-  //       n: 'merchSelling',
-  //       /*@preserve*/
-  //       re: true,
-  //     });
-  //   }
-  // }
-
-  // sellChoices.push({
-  //   text: 'Go back.',
-  //   n: 'day',
-  // });
 
   eventState.event.children.push(
     {
@@ -204,18 +175,15 @@ export const gameCreateAntiCursePotionEvent = (
   if (state.magicDice.some(d => d.some(f => f === ResourceType.DICE_CUR))) {
     const dayEvent = eventState.event.children.find(ch => ch.id === 'day');
     dayEvent.choices.push({
-      text: 'Use 1 POT_ANTI_CURSE to remove a curse.',
+      text: `Use 1 ${ResourceType.POT_ANT} to remove a curse.`,
       n: 'noc',
       conditionText: `HAS(1 ${ResourceType.POT_ANT})`,
     });
     eventState.event.children.push({
       id: 'noc',
       type: 'm',
-      p: 'Use 1 POT_ANTI_CURSE to remove a curse.',
-      mod: [
-        `-1 ${ResourceType.POT_ANT}`,
-        `1 ${ResourceType.EFF_RMCUR}`,
-      ],
+      p: 'You down the potion in one gulp, and feel much better.',
+      mod: [`-1 ${ResourceType.POT_ANT}`, `1 ${ResourceType.EFF_RMCUR}`],
       n: 'day',
       re: true,
     });
@@ -237,9 +205,14 @@ export const createContractReturnEvent = (contractEvent: GameEvent) => {
           potionName,
         choices: [
           {
-            text: 'Give them the potion.',
+            text: 'Sell them the potion. (7 GOLD)',
             n: '1',
             conditionText: `HAS(${potionName})`,
+          },
+          {
+            text: 'Mix the potion for them.',
+            n: '3',
+            conditionText: `HAS_I(${potionName})`,
           },
           {
             text: 'Say you cannot help. The Black Cat will be most displeased.',
@@ -252,6 +225,13 @@ export const createContractReturnEvent = (contractEvent: GameEvent) => {
         type: 'm',
         p: 'You sell the potion to the villager.',
         mod: [`-${potionName}`, '7 GOLD'],
+        n: 'e',
+      },
+      {
+        id: '3',
+        type: 'm',
+        p: 'You mix and sell the potion to the villager.',
+        mod: [`-ING(${potionName})`, '7 GOLD'],
         n: 'e',
       },
       {
@@ -278,31 +258,62 @@ export const createBlackCatEvent = (originalBlackCatEvent: GameEvent) => {
 
   const potentialChoices = [
     {
-      text: '1 Random Dice Upgrade',
-      n: 'dice',
+      text: `1 ${ResourceType.EFF_FFIR}.`,
+      n: 'dice0',
+    },
+    {
+      text: `1 ${ResourceType.EFF_FHEA}.`,
+      n: 'dice1',
+    },
+    {
+      text: `1 ${ResourceType.EFF_FGRO}.`,
+      n: 'dice2',
+    },
+    {
+      text: `1 ${ResourceType.POT_ANT}.`,
+      n: 'pot',
     },
     // {
-    //   text: '1 BLUEPRINT_SPECIALPETAL',
-    //   n: 'bed',
+    //   text: `2 ${ResourceType.FAV_CAT}.`,
+    //   n: 'fav',
     // },
   ];
   choiceChild.choices = potentialChoices;
+  for (let i = 0; i < potentialRewards.length; i++) {
+    const diceEffect = potentialRewards[i];
+    event.children.push({
+      id: 'dice' + i,
+      type: 'm',
+      p: `The Black Cat's eyes glow, and you feel a new power within you.`,
+      mod: [`1 ${diceEffect}`],
+      n: 'e',
+    });
+  }
+
+  const catDialog = "\"Perhaps a wise choice.\"";
 
   event.children.push(
     {
-      id: 'dice',
+      id: 'pot',
       type: 'm',
-      p: "The Black Cat's eyes glow, and you feel a new power within you.",
-      mod: [`1 ${randInArray(potentialRewards)}`],
+      p: catDialog,
+      mod: [`1 ${ResourceType.POT_ANT}`],
       n: 'e',
     },
     {
-      id: 'bed',
+      id: 'fav',
       type: 'm',
-      p: 'The cat blinks and you have a new seed bed.',
-      mod: [`1 ${ResourceType.BP_SPE}`],
+      p: catDialog,
+      mod: [`2 ${ResourceType.FAV_CAT}`],
       n: 'e',
-    }
+    },
+    // {
+    //   id: 'bed',
+    //   type: 'm',
+    //   p: 'The cat blinks and you suddenly have a new seed bed.',
+    //   mod: [`1 ${ResourceType.BP_SPE}`],
+    //   n: 'e',
+    // }
   );
 
   return event;

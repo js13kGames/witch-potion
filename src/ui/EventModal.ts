@@ -13,6 +13,7 @@ import {
   copyObject,
   setStyle,
   setAttribute,
+  BR,
 } from '../dom';
 import {
   gameEventRunChild,
@@ -29,7 +30,7 @@ import {
 } from '../eventTypes';
 import { gameRollDiceUi } from '../game';
 import {
-  createMagicDice,
+  createPowerDice,
   DiceWithFaces,
   GameState,
   gameStateGetResourceCount,
@@ -197,8 +198,6 @@ export const eventModalAddChild = (
       eventModalAddMod(content, modifyResource);
     }
   }
-
-  console.log('RENDER GAME CHILD', gameEventChild);
 
   if (gameEventChild.n) {
     const button = createElement(BUTTON, {
@@ -408,7 +407,7 @@ const eventModalAddDiceButtons = (
   if (!args.isAny) {
     if (luckPotionCount > 0) {
       const luckPotionLabel = Labels[ResourceType.POT_LIQ];
-      const luckBtnText = `Use a ${luckPotionLabel.l}${luckPotionLabel.icon}<br>(all rolls meet reqs).`;
+      const luckBtnText = `Use a ${luckPotionLabel.l}${luckPotionLabel.icon}${BR}(all rolls meet reqs).`;
       const luckButton = createElement(BUTTON, {
         class: CLASS_BTN_TEXT,
         [INNER_HTML]: luckBtnText,
@@ -432,7 +431,7 @@ const eventModalAddDiceButtons = (
       const powerBtnText = `Use a ${highlightResource(
         ResourceType.POT_POW,
         COLOR_HIGHLIGHT_DARK_TEXT
-      )}<br>(1 additional dice).`;
+      )}${BR}(1 additional dice).`;
       const powerButton = createElement(BUTTON, {
         class: CLASS_BTN_TEXT,
         [INNER_HTML]: powerBtnText,
@@ -440,7 +439,7 @@ const eventModalAddDiceButtons = (
 
       domAddEventListener(powerButton, EVENT_CLICK, () => {
         (powerButton as HTMLButtonElement).disabled = true;
-        const d = createMagicDice();
+        const d = createPowerDice();
         const dice = createDice(state, d, '✨');
         eventModal.diceElements.push(dice);
         eventModal.content.insertBefore(dice.root, eventModal.next);

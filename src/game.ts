@@ -29,7 +29,7 @@ import {
   gameStateGetResourceCount,
   gameStateModifyResource,
 } from './state';
-import { calendarAdvanceDayForward } from './ui/Calendar';
+import { calendarSetDay } from './ui/Calendar';
 import { Dice, diceSetFace, diceSpin } from './ui/Dice';
 import { eventModalAddChild, eventModalScrollToBottom } from './ui/EventModal';
 import { setPrimaryResources } from './ui/PrimaryResources';
@@ -78,7 +78,11 @@ export const gameAdvanceDay = (state: GameState, msg?: string) => {
     appendChild(state.ui.eventModal.content, sep);
     eventModalScrollToBottom(state.ui.eventModal);
     if (!msg) {
-      calendarAdvanceDayForward(state.ui.calendar);
+      // calendarAdvanceDayForward(state.ui.calendar);
+      console.log('SET DAY', state.day);
+      calendarSetDay(state.ui.calendar, state.day - 1);
+    } else {
+      calendarSetDay(state.ui.calendar, 0);
     }
 
     console.log('ADVANCE DAY', state.day, state.events[state.day]);
@@ -209,7 +213,7 @@ export const gameSetupEvents = (state: GameState, events: GameEvent[]) => {
   const attackEvents: GameEvent[] = [];
 
   for (let i = 0; i < 7; i++) {
-    const numFireToDefeat = i < 3 ? 1 : i < 6 ? 2 : 3;
+    const numFireToDefeat = i < 3 ? 1 : i < 6 ? 1 : 2;
     const monsterName = randInArray(MONSTER_NAMES);
     const attackEvent = copyObject(ATTACK_EVENT);
     for (const child of attackEvent.children) {
@@ -285,7 +289,7 @@ export const gameSetupEvents = (state: GameState, events: GameEvent[]) => {
   // const randomPotion = randInArray(POTION_NAMES);
   // continueChild.mod.push('1 ' + randomPotion);
 
-  const finalEvents = [startEventCopy, ...orderedEvents].slice(0, 29);
+  const finalEvents = [startEventCopy, ...orderedEvents].slice(0, 30);
   finalEvents.push(FINAL_TEST_EVENT, END_EVENT);
   console.log('SETUP EVENTS', startEventCopy, finalEvents);
   state.events = finalEvents;
@@ -327,7 +331,7 @@ export const gameModifyResource = (
   if (resource === ResourceType.C_VIL) {
     const contractReturnEvent = createContractReturnEvent(gameEventState.event);
     const eventInd = state.events.indexOf(gameEventState.event);
-    state.events.splice(eventInd + 7, 0, contractReturnEvent.event);
+    state.events.splice(eventInd + 7, 1, contractReturnEvent.event);
   } else if (resource === ResourceType.DICE_NEW) {
     state.magicDice.push(createMagicDice());
   } else if (resource === ResourceType.EFF_RMCUR) {
@@ -350,8 +354,10 @@ export const gameModifyResource = (
   } else if (resource === ResourceType.EFF_COL) {
     // child.next = 'nextDay';
     timeoutPromise(1).then(() => {
-      gameAdvanceDay(state, 'You take a day to rest and recover.');
+      gameAdvanceDay(state, 'Time drags on...');
     });
+  } else if (resource === ResourceType.EFF_REL) {
+    window.location.reload();
   } else {
     gameStateModifyResource(state, resource, amt);
     if (BLUEPRINT_NAMES.includes(resource)) {

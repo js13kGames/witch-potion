@@ -1,12 +1,5 @@
 import { defaultEventState } from './defaultEvent';
-import {
-  appendChild,
-  copyObject,
-  createElement,
-  getGameRoot,
-  INNER_HTML,
-  SPAN,
-} from './dom';
+import { appendChild, BR, copyObject, getGameRoot, SPAN } from './dom';
 import { ARG_DELIMITER, CONDITION_DELIMITER } from './eventParser';
 import {
   ConditionFunc,
@@ -58,7 +51,7 @@ export interface GameEventState {
 export const runEvent = (state: GameState, event: GameEvent) => {
   const eventState = createEventState(event);
   evaluateVars(state, eventState, event);
-  replaceVars(state,eventState, event);
+  replaceVars(state, eventState, event);
   let modal = state.ui.eventModal;
   if (!modal) {
     modal = createEventModal(eventState);
@@ -99,15 +92,30 @@ export const gameEventRunChild = (
       gameCreateBrewingEvents(state, newEventState);
       gameCreateViewInventoryEvents(state, newEventState);
       gameCreateAntiCursePotionEvent(state, newEventState);
-      if (state.day % 7 === 4) {
-        appendChild(
-          modal.content,
-          createElement('p', {
-            [INNER_HTML]: `<${SPAN} style="color: brown;">You feel that the Black Cat will visit you tomorrow.</${SPAN}>`,
-          })
-        );
-      }
       gameEventRunChild(state, newEventState, newEventState.event.children[0]);
+      if (
+        state.day % 7 === 4 ||
+        state.day === 29 ||
+        gameStateGetResourceCount(state, ResourceType.FAV_CAT) === 0
+      ) {
+        // appendChild(
+        //   modal.content,
+        //   createElement('p', {
+        //     [INNER_HTML]: `<${SPAN} style="color: brown;">You feel that the Black Cat will visit you tomorrow.</${SPAN}>`,
+        //   })
+        // );
+        const dayChild = newEventState.event.children.find(
+          ch => ch.id === 'day'
+        );
+        if (dayChild) {
+          let text = 'You feel that the Black Cat will visit you tomorrow.';
+          if (state.day === 29) {
+            text =
+              'A sense of urgency fills you! The Black Cat will come to TEST you tomorrow!';
+          }
+          dayChild.p += `${BR}${BR}<${SPAN} style="color: brown;">${text}</${SPAN}>`;
+        }
+      }
     }
     return;
   }
@@ -165,6 +173,7 @@ export const gameEventRunChild = (
     gameCreateMerchantEvents(state, eventState);
     gameCreateBrewingEvents(state, eventState);
     gameCreateViewInventoryEvents(state, eventState);
+    gameCreateAntiCursePotionEvent(state, eventState);
   }
 
   eventModalAddChild(modal, child, eventState, state);
@@ -240,8 +249,15 @@ export const gameEventParseResourceFunc2 = (
       amt--;
     }
     if (resToReturn.length === 0) {
+      const res = resList[0];
       console.log('No resources found for', func, args);
-      // if (requireExist && ) {
+      if (requireExist && res !== ResourceType.GOLD) {
+        const goldArray: ResourceType[] = [];
+        for (let i = 0; i < resList.length; i++) {
+          goldArray.push(ResourceType.GOLD);
+        }
+        return _parseArgsForAmtFunc(goldArray);
+      }
       return [0, ResourceType.GOLD];
     }
     return [amt + 1, randInArray(resToReturn)];
@@ -294,7 +310,6 @@ export const gameEventParseResourceFunc2 = (
         return [18, text];
       }
       const [, resource] = parseAmountAndResource(args.join(' '));
-      console.log('RES', args);
       const recipe: ResourceType[] = RECIPES[resource];
       const amounts = recipeToStringArr(recipe);
       return [18, amounts.join(ARG_DELIMITER)];
@@ -476,12 +491,16 @@ const evaluateVars = (
   }
 };
 
-const replaceVars = (state: GameState, eventState: GameEventState, event: GameEvent) => {
+const replaceVars = (
+  state: GameState,
+  eventState: GameEventState,
+  event: GameEvent
+) => {
   for (const varName in event.vars) {
     const obj = event.vars[varName];
     if (obj.parsed.includes('@')) {
       obj.str = replaceVarsInText(obj.str, eventState.evalVars);
-      delete eventState.evalVars[varName]
+      delete eventState.evalVars[varName];
       delete obj.parsed;
     }
   }

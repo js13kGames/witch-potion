@@ -75,6 +75,14 @@ export const createMagicDice = (): DiceWithFaces => {
   ];
 };
 
+export const createPowerDice = (): DiceWithFaces => {
+  const d = [];
+  for (let i = 0; i < 6; i++) {
+    d.push(i < 3 ? ResourceType.DICE_FIR : ResourceType.DICE_HEA);
+  }
+  return d as DiceWithFaces;
+};
+
 export const createMagicDiceBlank = (): DiceWithFaces => {
   const d = [];
   for (let i = 0; i < 6; i++) {

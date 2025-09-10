@@ -13,7 +13,7 @@ Primary Mechanics
     - Herbs
       - Can be grown in the player's garden.
     - Potions
-      - Combinations of herbs and reagents that can be sold or used in events.
+      - Combinations of herbs and reagents that can be used in events.
   - Secondary Resources
     - Herb Blueprints
       - Used to determine what herbs are available to be grown in the player's garden.
@@ -36,7 +36,8 @@ Primary Mechanics
     - The Black Cat evaluates your progress and gives you a good/bad luck dice.
   Bad Events
     - You wake up with a cold and can only harvest half vegetables.
-    - 
+    - Curses
+    - Robbers
   Fortuitous Events
     - Finding money/herbs/reagents.
       - A longtime friend sends you an herb sack.

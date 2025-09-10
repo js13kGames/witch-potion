@@ -1,59 +1,28 @@
-import {
-  type GameEvent,
-  type GameEventChild,
-  type GameEventChoice,
-} from './eventTypes';
-import { splitDelimTrim } from './utils';
+const fs = require('fs');
+const path = require('path');
 
-export const ARG_DELIMITER = '|';
-export const CONDITION_DELIMITER = ',';
+// Since we're in a Node.js environment, we need to handle the TypeScript imports
+// We'll use a simple approach by copying the necessary functions
 
-export const startsWith = (line: string, prefix: string) => {
+// Import the parseEvents function and dependencies
+// Note: This is a simplified approach - in a real scenario you might want to use ts-node or compile first
+
+const ARG_DELIMITER = '|';
+const CONDITION_DELIMITER = ',';
+
+// Copy the startsWith function from eventParser.ts
+const startsWith = (line, prefix) => {
   return line.startsWith(prefix);
 };
 
-type ParseContext = {
-  lines: string[];
-  currentLine: number;
+// Copy the splitDelimTrim function from utils.ts
+const splitDelimTrim = (str, delimiter) => {
+  return str.split(delimiter).map(s => s.trim()).filter(s => s.length > 0);
 };
 
-function parseMultipleEvents(eventsString: string): GameEvent[] {
-  const events: GameEvent[] = [];
-
-  const lines = eventsString.trim().split('\n');
-  let currentEventLines: string[] = [];
-
-  const _parseEvent = (eventString: string) => {
-    try {
-      const event = parseEventString(eventString);
-      events.push(event);
-    } catch (error) {
-      console.warn('Failed to parse last event:', error);
-    }
-  };
-
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-
-    if (startsWith(trimmedLine, '#') && currentEventLines.length > 0) {
-      const currentEventString = currentEventLines.join('\n');
-      _parseEvent(currentEventString);
-      currentEventLines = [trimmedLine];
-    } else {
-      currentEventLines.push(trimmedLine);
-    }
-  }
-
-  if (currentEventLines.length > 0) {
-    const lastEventString = currentEventLines.join('\n');
-    _parseEvent(lastEventString);
-  }
-
-  return events;
-}
-
-function parseEventString(eventString: string): GameEvent {
-  const context: ParseContext = {
+// Copy the ParseContext type and functions from eventParser.ts
+const parseEventString = (eventString) => {
+  const context = {
     lines: splitDelimTrim(eventString.trim(), '\n').filter(
       line => line.length > 0
     ),
@@ -74,13 +43,14 @@ function parseEventString(eventString: string): GameEvent {
   const icon = headerMatch[2].trim();
   context.currentLine++;
 
-  const children: GameEventChild[] = [];
-  const event: GameEvent = {
+  const children = [];
+  const event = {
     title,
     icon,
     children,
     vars: {},
   };
+  
   while (context.currentLine < context.lines.length) {
     const child = parseChild(context, event);
     if (child) {
@@ -89,9 +59,9 @@ function parseEventString(eventString: string): GameEvent {
   }
 
   return event;
-}
+};
 
-function parseChild(context: ParseContext, event: GameEvent): GameEventChild | null {
+const parseChild = (context, event) => {
   if (context.currentLine >= context.lines.length) {
     return null;
   }
@@ -126,10 +96,10 @@ function parseChild(context: ParseContext, event: GameEvent): GameEventChild | n
   }
 
   const id = childMatch[1];
-  const type = childMatch[2] as 'ch' | 'roll' | 'end' | 'm' | 'd';
+  const type = childMatch[2];
   context.currentLine++;
 
-  const child: GameEventChild = { id, type };
+  const child = { id, type };
 
   while (context.currentLine < context.lines.length) {
     const contentLine = context.lines[context.currentLine];
@@ -184,9 +154,9 @@ function parseChild(context: ParseContext, event: GameEvent): GameEventChild | n
   }
 
   return child;
-}
+};
 
-function parseChoice(choiceLine: string): GameEventChoice {
+const parseChoice = (choiceLine) => {
   const [n, text, conditionText] = splitDelimTrim(
     choiceLine.slice(3),
     ARG_DELIMITER
@@ -197,9 +167,9 @@ function parseChoice(choiceLine: string): GameEventChoice {
     conditionText,
     n,
   };
-}
+};
 
-function parseDice(diceLine: string): string[] {
+const parseDice = (diceLine) => {
   const diceMatch = diceLine.match(/^\+d:(.+)$/);
   if (!diceMatch) {
     throw new Error(`Invalid dice format: ${diceLine}`);
@@ -207,7 +177,7 @@ function parseDice(diceLine: string): string[] {
 
   const dicePart = diceMatch[1].trim();
   const diceStrings = splitDelimTrim(dicePart, ARG_DELIMITER);
-  const rolls: string[] = [];
+  const rolls = [];
 
   for (const diceString of diceStrings) {
     const diceMatch = diceString.match(/^(.*)$/);
@@ -219,9 +189,9 @@ function parseDice(diceLine: string): string[] {
   }
 
   return rolls;
-}
+};
 
-function parseResources(resourceLine: string): string[] {
+const parseResources = (resourceLine) => {
   const isAdd = startsWith(resourceLine, '+add:');
   const isRemove = startsWith(resourceLine, '+rem:');
 
@@ -232,11 +202,10 @@ function parseResources(resourceLine: string): string[] {
   const resourcePart = resourceLine.slice(isAdd ? 5 : 6).trim();
 
   const resourceStrings = splitDelimTrim(resourcePart, ARG_DELIMITER);
-  const resources: string[] = [];
+  const resources = [];
 
   for (const resourceString of resourceStrings) {
     const resourceMatch = resourceString.match(/^(.*)$/);
-    // console.log('MATCH RESOURCE STRING', resourceString, resourceMatch);
     if (!resourceMatch) {
       throw new Error(`Invalid resource format: ${resourceString}`);
     }
@@ -247,12 +216,78 @@ function parseResources(resourceLine: string): string[] {
   }
 
   return resources;
-}
+};
 
-export function parseEvent(eventString: string): GameEvent {
-  return parseEventString(eventString);
-}
+const parseMultipleEvents = (eventsString) => {
+  const events = [];
 
-export function parseEvents(eventsString: string): GameEvent[] {
-  return parseMultipleEvents(eventsString);
-}
+  const lines = eventsString.trim().split('\n');
+  let currentEventLines = [];
+
+  const _parseEvent = (eventString) => {
+    try {
+      const event = parseEventString(eventString);
+      events.push(event);
+    } catch (error) {
+      console.warn('Failed to parse last event:', error);
+    }
+  };
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+
+    if (startsWith(trimmedLine, '#') && currentEventLines.length > 0) {
+      const currentEventString = currentEventLines.join('\n');
+      _parseEvent(currentEventString);
+      currentEventLines = [trimmedLine];
+    } else {
+      currentEventLines.push(trimmedLine);
+    }
+  }
+
+  if (currentEventLines.length > 0) {
+    const lastEventString = currentEventLines.join('\n');
+    _parseEvent(lastEventString);
+  }
+
+  return events;
+};
+
+// Main script logic
+const generateEvents = () => {
+  try {
+    console.log('Reading events.wpe file...');
+    
+    // Read the events.wpe file
+    const eventsWpePath = path.join(__dirname, '../public/events.wpe');
+    const eventsTxt = fs.readFileSync(eventsWpePath, 'utf8');
+    
+    console.log('Parsing events...');
+    
+    // Parse the events (mimicking the main.ts logic)
+    const parsedEvents = parseMultipleEvents(eventsTxt.replaceAll('\\n', '<br>'));
+    
+    console.log(`Parsed ${parsedEvents.length} events`);
+    
+    // Generate the events.js file
+    const eventsJsPath = path.join(__dirname, '../events.js');
+    const eventsJsContent = `// Generated events file
+// This file is automatically generated by scripts/generate-events.js
+// Do not edit manually
+
+export const events = ${JSON.stringify(parsedEvents, null, 2)};
+`;
+    
+    fs.writeFileSync(eventsJsPath, eventsJsContent);
+    
+    console.log(`Successfully generated ${eventsJsPath}`);
+    console.log(`File size: ${fs.statSync(eventsJsPath).size} bytes`);
+    
+  } catch (error) {
+    console.error('Error generating events.js:', error);
+    process.exit(1);
+  }
+};
+
+// Run the script
+generateEvents();

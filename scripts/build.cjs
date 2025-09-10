@@ -242,7 +242,7 @@ async function minifyFiles(filePaths) {
   );
 }
 
-function processCodeFile(text) {
+function processCodeFile(text, filePath) {
   // remove import statements
   const lastLineInd = text.lastIndexOf('} from ');
   let endImportsInd = lastLineInd;
@@ -258,6 +258,7 @@ function processCodeFile(text) {
   let processedText = textWithoutImports
     .replace(/export /g, '')
     .replace(/const /g, 'let ');
+
 
   // Replace throw new Error(...) with throw 1 if flag is enabled
   if (USE_DISABLE_THROW) {
@@ -282,24 +283,52 @@ const build = async () => {
   fs.mkdirSync(srcDistDir, { recursive: true });
   // await execAsync(`cp -r ${__dirname}/../public/* ${resDistDir}`);
 
-  const eventsTxt = fs.readFileSync(
-    `${__dirname}/../public/events.wpe`,
-    'utf8'
-  );
 
   console.log('\nMinify code...');
   const filePaths = getAllFilePaths(path.resolve(__dirname + '/../src'));
   console.log('files to concat and minify:\n', filePaths.join('\n '));
-  let indexFile = filePaths.reduce((resultFile, currentFilePath) => {
+  
+  // First, add the events.js file content at the beginning
+  let indexFile = '';
+  const eventsJsPath = path.resolve(__dirname + '/../events.js');
+  if (fs.existsSync(eventsJsPath)) {
+    console.log('Adding events.js to build...');
+    const eventsJsContent = fs.readFileSync(eventsJsPath, 'utf8');
+    // Remove the export statement and just keep the events array
+    const eventsArray = eventsJsContent.replace(/export const events = /, 'let events = ').replace(/;$/, ';');
+    indexFile += eventsArray + '\n';
+    
+  } else {
+    throw new Error('events.js not found');
+  }
+  
+  // Then add all the source files
+  indexFile += filePaths.reduce((resultFile, currentFilePath) => {
     const currentFile = fs.readFileSync(currentFilePath).toString();
-    resultFile += processCodeFile(currentFile);
+    resultFile += processCodeFile(currentFile, currentFilePath);
     return resultFile;
   }, '');
 
-  indexFile = indexFile.replace(
-    `await fetch('/events.wpe').then(r => r.text())`,
-    `\`${eventsTxt}\`;`
-  );
+  // Replace the events loading logic with direct events usage
+  console.log('Attempting to replace events loading logic...');
+  
+  const beforeReplace = indexFile.includes("let eventsTxt = await fetch('/events.wpe')");
+  console.log('Found eventsTxt fetch line:', beforeReplace);
+  
+  // Try multiline replacement first
+  const multilinePattern = /let eventsTxt = await fetch\('\/events\.wpe'\)\.then\(r => r\.text\(\)\);\s*\n\s*gameSetupEvents\(gameState, parseEvents\(eventsTxt\.replaceAll\('\\\\n', '<br>'\)\)\);/g;
+  indexFile = indexFile.replace(multilinePattern, 'gameSetupEvents(gameState, events);');
+  
+  // Try single line replacement as fallback
+  const singlelinePattern = /let eventsTxt = await fetch\('\/events\.wpe'\)\.then\(r => r\.text\(\)\);\s*gameSetupEvents\(gameState, parseEvents\(eventsTxt\.replaceAll\('\\\\n', '<br>'\)\)\);/g;
+  indexFile = indexFile.replace(singlelinePattern, 'gameSetupEvents(gameState, events);');
+  
+  // Try simpler patterns
+  indexFile = indexFile.replace(/let eventsTxt = await fetch\('\/events\.wpe'\)\.then\(r => r\.text\(\)\);/g, '');
+  indexFile = indexFile.replace(/gameSetupEvents\(gameState, parseEvents\(eventsTxt\.replaceAll\('\\\\n', '<br>'\)\)\);/g, 'gameSetupEvents(gameState, events);');
+  
+  const afterReplace = indexFile.includes("let eventsTxt = await fetch('/events.wpe')");
+  console.log('Events replacement successful:', !afterReplace);
 
   fs.writeFileSync(srcDistDir + '/index.js', indexFile);
   fs.writeFileSync(__dirname + '/../index.concat.js', indexFile);

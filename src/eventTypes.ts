@@ -70,6 +70,7 @@ export enum ResourceType {
   EFF_FCUR = 'EFFECT_FACE_ADD_CURSE',
   EFF_RMCUR = 'EFFECT_REMOVE_CURSE',
   EFF_REPLCUR = 'EFFECT_REPLACE_CURSE',
+  EFF_REL = 'EFFECT_RELOAD',
 }
 
 export const DICE_NAMES = [
@@ -110,6 +111,7 @@ export const BLUEPRINT_NAMES = [
 export const BUY_COSTS = {
   [ResourceType.REAG_SUN]: 2,
   [ResourceType.REAG_SKY]: 3,
+  [ResourceType.HERB_SPE]: 8,
 };
 
 export const SELL_COSTS = {
@@ -188,12 +190,16 @@ export enum ConditionFunc {
   HAS_ING = 'HAS_I',
 }
 
-function toGrayscale(icon: string) {
+export function toGrayscale(icon: string) {
   return `<${SPAN} style="filter: grayscale(75%)">${icon}</${SPAN}>`;
 }
 
-function toHueRotate(icon: string, degrees: number) {
+export function toHueRotate(icon: string, degrees: number) {
   return `<${SPAN} style="filter: hue-rotate(${degrees}deg)">${icon}</${SPAN}>`;
+}
+
+export function toIcon(icon: string) {
+  return `<${SPAN} class="icon" style="background:#999">${icon}</${SPAN}>`;
 }
 
 export const ICON_GOLD = '💰';
@@ -202,18 +208,18 @@ export const ICON_REAGENT = '🧪';
 export const ICON_POTION = '🧴';
 export const ICON_FIRE_MAGIC = '🔥';
 export const ICON_HEART_MAGIC = '♥️';
-export const ICON_LUCK = '🍀';
+// export const ICON_LUCK = '🍀';
 export const ICON_CAT = toGrayscale('🐈‍⬛');
 export const ICON_GROW = '🌱';
 export const ICON_CONTRACT = '📃';
 export const ICON_EXCLAMATION = '❗';
-export const ICON_KING = '👑';
+// export const ICON_KING = '👑';
 export const ICON_VILLAGER = '👨';
 export const ICON_DRAGON = '🐲';
 export const ICON_FELLA = '👾';
-export const ICON_FAIRY = '🧚🏿‍♀️';
+// export const ICON_FAIRY = '🧚🏿‍♀️';
 export const ICON_WITCH = '🧙🏿‍♀️';
-export const ICON_WEATHER = '🌤';
+// export const ICON_WEATHER = '🌤';
 export const ICON_DICE = '🎲';
 export const ICON_CURSE = '💀';
 export const ICON_BLANK = '✖️';
@@ -319,7 +325,7 @@ export const Labels: Record<string, LabelObj> = {
   [ResourceType.POT_POW]: {
     l: 'Power Potion',
     icon: ICON_POTION,
-    dsc: 'More magic.',
+    dsc: `Temp ${ICON_FIRE_MAGIC}/${ICON_HEART_MAGIC} dice.`,
   },
   // [ResourceType.POT_REDO]: {
   //   l: 'Retry Serum',
@@ -367,9 +373,9 @@ export const Labels: Record<string, LabelObj> = {
     dsc: 'A new magic dice.',
   },
   [ResourceType.EFF_COL]: {
-    l: 'Cold',
+    l: 'Skip Day',
     icon: ICON_COLD,
-    dsc: 'You have a cold.',
+    dsc: 'The day is skipped.',
   },
   [ResourceType.EFF_GRE]: {
     l: 'Green Thumbs',
@@ -379,32 +385,37 @@ export const Labels: Record<string, LabelObj> = {
   [ResourceType.EFF_FFIR]: {
     l: 'Fire Dice Face',
     icon: ICON_FIRE_MAGIC,
-    dsc: `Gained a ${ICON_FIRE_MAGIC} face.`,
+    dsc: `A dice face increases your power.`,
   },
   [ResourceType.EFF_FHEA]: {
     l: 'Heart Dice Face',
     icon: ICON_HEART_MAGIC,
-    dsc: `Gained a ${ICON_HEART_MAGIC} face.`,
+    dsc: `A dice face increases your power.`,
   },
   [ResourceType.EFF_FGRO]: {
     l: 'Grow Dice Face',
     icon: ICON_GROW,
-    dsc: `Gained a ${ICON_GROW} face.`,
+    dsc: `A dice face increases your power.`,
   },
   [ResourceType.EFF_FCUR]: {
     l: 'Curse Dice Face',
     icon: ICON_CURSE,
-    dsc: `Gained a ${ICON_CURSE} face.`,
+    dsc: `Cursed power inhibits your magic.`,
   },
   [ResourceType.EFF_RMCUR]: {
-    l: 'Remove Curse',
+    l: 'Removed Curse',
     icon: ICON_CURSE,
-    dsc: `Removed a curse.`,
+    dsc: `Dispelled a curse.`,
   },
   [ResourceType.EFF_REPLCUR]: {
     l: 'Curse!',
     icon: ICON_CURSE,
     dsc: `A curse replaces a face.`,
+  },
+  [ResourceType.EFF_REL]: {
+    l: '',
+    icon: ICON_DICE,
+    dsc: ``,
   },
 };
 

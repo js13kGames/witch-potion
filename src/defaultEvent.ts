@@ -15,7 +15,7 @@ export const defaultEventState: GameEventState = {
         /*@preserve*/
         type: 'garden',
         /*@preserve*/
-        p: 'You may now harvest your garden.',
+        p: `You may now harvest your garden.`,
       },
       {
         /*@preserve*/
@@ -30,25 +30,25 @@ export const defaultEventState: GameEventState = {
         choices: [
           {
             /*@preserve*/
-            text: 'Visit the reagent merchant.',
+            text: `Visit the reagent merchant.`,
             /*@preserve*/
             n: 'merch',
           },
           {
             /*@preserve*/
-            text: 'Mix potions.',
+            text: `Mix potions.`,
             /*@preserve*/
             n: 'pot',
           },
           {
             /*@preserve*/
-            text: 'View inventory.',
+            text: `View inventory.`,
             /*@preserve*/
             n: 'inv',
           },
           {
             /*@preserve*/
-            text: 'End the day.',
+            text: `End the day.`,
             /*@preserve*/
             n: 'nextDay',
           },

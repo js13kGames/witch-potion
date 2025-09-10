@@ -7,6 +7,7 @@ import {
   EVENT_CLICK,
   INNER_HTML,
   P,
+  setStyle,
   timeoutPromise,
 } from '../dom';
 import { gameEventRunChild, GameEventState } from '../eventRunner';
@@ -103,6 +104,9 @@ export const createGarden = (
     const greenThumbText = createElement(P, {
       class: CLASS_BTN_TEXT,
       [INNER_HTML]: `Your ${greenThumbLabel.l}${greenThumbLabel.icon} will let you harvest double.`,
+    });
+    setStyle(greenThumbText, {
+      width: 'calc(100% - 8px)',
     });
     appendChild(root, greenThumbText);
   }
