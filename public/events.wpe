@@ -58,7 +58,7 @@
   +p: You wake up this morning to find a small gnome stealing from your garden!  With a fistful of herbs, he spots you and tries to run away as fast as his little feet can carry him.
   +c: 1|Use your magic to threaten the gnome, but you may damage the herbs...\n@A
   +c: 2|Entice the gnome to give back the herbs.\n@B
-  +c: fail|Let him take @C, but at least there'll be no ruckus.
+  +c: fail|Let him take\n@C, but at least there'll be no ruckus.
 >1,d
   +p: You raise your hand and aim at the little fellow.
   +d: @A
@@ -176,9 +176,9 @@
 @C=HEART(2)
 >0,ch
   +p: A costumed man dashes into your shop.\n\n"Give me all your money or I'll curse you!"
-  +c: 1|Cower and give him @A.
-  +c: 2|Stand your ground. @B
-  +c: 3|Reason with him. @C
+  +c: 1|Cower and give him your gold.\n@A
+  +c: 2|Stand your ground.\n@B
+  +c: 3|Reason with him.\n@C
 >1,m
   +p: You empty your coffers and give up @A.
   +rem: @A
@@ -300,6 +300,7 @@
 @C=1 FAVOR_CAT
 @D=ING(@A)
 >0,ch
+  +m: @TEST
   +p: A villager comes to your shop and requisitions a potion:\n\n@A.
   +c: 1|Sell the potion for\n@B.|HAS(@A)
   +c: 2|You can mix it and sell it right now for\n@B.|HAS_I(@A)

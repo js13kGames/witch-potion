@@ -69,6 +69,7 @@ addEventListener('load', async () => {
   runEvent(gameState, gameState.events[0]);
   // runEvent(gameState, gameState.events.find(e => e.title.includes('You Have a Cold'))!);
   // runEvent(gameState, gameState.events.find(e => e.title.includes('Gnome'))!);
+  // runEvent(gameState, gameState.events.find(e => e.title.includes('Contract'))!);
 
   // debug default event state
   // const newEventState = copyObject(defaultEventState);

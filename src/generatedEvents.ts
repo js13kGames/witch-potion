@@ -205,7 +205,7 @@ export const createContractReturnEvent = (contractEvent: GameEvent) => {
           potionName,
         choices: [
           {
-            text: 'Sell them the potion. (7 GOLD)',
+            text: 'Sell them the potion.<br>(7 GOLD)',
             n: '1',
             conditionText: `HAS(${potionName})`,
           },
@@ -231,7 +231,12 @@ export const createContractReturnEvent = (contractEvent: GameEvent) => {
         id: '3',
         type: 'm',
         p: 'You mix and sell the potion to the villager.',
-        mod: [`-ING(${potionName})`, '7 GOLD'],
+        mod: [
+          ...recipeToStringArr(RECIPES[potionName.split(' ')[1]]).map(
+            s => `-${s}`
+          ),
+          '7 GOLD',
+        ],
         n: 'e',
       },
       {
@@ -290,7 +295,7 @@ export const createBlackCatEvent = (originalBlackCatEvent: GameEvent) => {
     });
   }
 
-  const catDialog = "\"Perhaps a wise choice.\"";
+  const catDialog = '"Perhaps a wise choice."';
 
   event.children.push(
     {
@@ -306,7 +311,7 @@ export const createBlackCatEvent = (originalBlackCatEvent: GameEvent) => {
       p: catDialog,
       mod: [`2 ${ResourceType.FAV_CAT}`],
       n: 'e',
-    },
+    }
     // {
     //   id: 'bed',
     //   type: 'm',
