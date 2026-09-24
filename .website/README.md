@@ -1,4 +1,7 @@
 ---
+genres:
+  - puzzle
+  - simulation
 post: https://revirtualis.net/blog-posts/850317ab-9036-4d39-a6a2-f138c4ce8dc9-09-13-js13.html
 # See github.com/js13kGames/hello-world for supported frontmatter
 ---
